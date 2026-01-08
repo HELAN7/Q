@@ -2,18 +2,50 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TNAA Explorer">
+    
     <title>TNAA Explorer 原型预览</title>
     <style>
-        :root { --bg: #ffffff; --text: #000000; --border: #eeeeee; --subText: #666666; --row: #ffffff; --accent: #007AFF; }
+        :root { 
+            --bg: #ffffff; --text: #000000; --border: #eeeeee; 
+            --subText: #666666; --row: #ffffff; --accent: #007AFF; 
+        }
         @media (prefers-color-scheme: dark) {
             :root { --bg: #000000; --text: #ffffff; --border: #222222; --subText: #888888; --row: #000000; }
         }
 
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: var(--bg); color: var(--text); overflow-x: hidden; }
-        
-        /* 列表页样式 */
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--border); }
+        /* 2. 防止系统工具栏被滑出来的关键 CSS */
+        html, body { 
+            margin: 0; 
+            height: 100%; 
+            width: 100%; 
+            overflow: hidden; /* 禁止全局滚动 */
+            position: fixed; /* 锁定视口 */
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        /* 3. 适配刘海屏：让标题向下移动，避开系统状态栏 */
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: calc(20px + env(safe-area-inset-top)) 20px 20px 20px; 
+            border-bottom: 1px solid var(--border); 
+            background: var(--bg);
+        }
+
+        /* 列表容器需要自己滚动 */
+        #file-list {
+            height: calc(100% - 100px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
         .title { font-size: 22px; font-weight: 900; }
         .add-btn { background: var(--accent); color: white; padding: 8px 16px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer; }
         
@@ -23,11 +55,15 @@
         .icon-btn { padding: 12px; cursor: pointer; font-size: 18px; border: none; background: none; }
 
         /* 编辑模态框 */
-        #editor-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 200; flex-direction: column; }
+        #editor-modal { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: var(--bg); z-index: 200; flex-direction: column; 
+            padding-top: env(safe-area-inset-top);
+        }
         .modal-header { display: flex; justify-content: space-between; padding: 15px; border-bottom: 1px solid var(--border); align-items: center; }
         textarea { flex: 1; width: 100%; border: none; padding: 15px; font-family: monospace; font-size: 16px; background: var(--bg); color: var(--text); outline: none; box-sizing: border-box; }
 
-        /* 运行界面：沉浸式 */
+        /* 运行界面：真正全屏 */
         #runner-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; }
         iframe { width: 100%; height: 100%; border: none; background: white; }
 
@@ -36,9 +72,12 @@
             position: absolute; width: 50px; height: 50px; border-radius: 25px;
             background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
             color: white; display: flex; align-items: center; justify-content: center;
-            cursor: move; font-weight: bold; z-index: 400; transition: opacity 0.8s;
+            cursor: pointer; font-weight: bold; z-index: 400; transition: opacity 0.8s;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             user-select: none;
+            /* 避开顶部的系统时间 */
+            top: calc(20px + env(safe-area-inset-top)); 
+            right: 20px;
         }
     </style>
 </head>
@@ -48,19 +87,12 @@
         <div class="header">
             <div>
                 <div class="title">TNAA Explorer</div>
-                <div style="font-size: 12px; color: var(--subText); margin-top: 4px;" id="pos-indicator">退出键位置: 右上 (预览模式)</div>
+                <div style="font-size: 12px; color: var(--subText); margin-top: 4px;" id="pos-indicator">已开启沉浸式 WebApp 模式</div>
             </div>
             <button class="add-btn" onclick="createNewFile()">+ 新建</button>
         </div>
         <div id="file-list">
-            <div class="file-item">
-                <div class="file-info" onclick="runFile('index.html')">📄 index.html</div>
-                <div class="action-group">
-                    <button class="icon-btn" onclick="shareFile()">📤</button>
-                    <button class="icon-btn" onclick="openEditor('index.html')">📝</button>
-                </div>
             </div>
-        </div>
     </div>
 
     <div id="editor-modal">
@@ -78,13 +110,12 @@
     </div>
 
     <script>
-        // 模拟文件系统存储
+        // 保持你原有的 JS 逻辑不变
         let files = JSON.parse(localStorage.getItem('tnaa_files')) || {
-            'index.html': '<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;"><h1>Hello TNAA!</h1></body></html>'
+            'index.html': '<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;margin:0;font-family:sans-serif;"><div><h1>Hello TNAA!</h1><p>全屏预览成功</p></div></body></html>'
         };
         let currentEditingName = '';
 
-        // 渲染列表
         function renderList() {
             const list = document.getElementById('file-list');
             list.innerHTML = '';
@@ -101,16 +132,14 @@
             localStorage.setItem('tnaa_files', JSON.stringify(files));
         }
 
-        // 新建逻辑
         function createNewFile() {
             const name = prompt("请输入文件名", "new_page");
             if (!name) return;
             const fileName = name.endsWith('.html') ? name : name + '.html';
-            files[fileName] = '<html><body style="background:#fff"><h1>新页面</h1></body></html>';
+            files[fileName] = '<html><body style="background:#fff;padding:20px;"><h1>新页面</h1></body></html>';
             renderList();
         }
 
-        // 编辑逻辑
         function openEditor(name) {
             currentEditingName = name;
             document.getElementById('editor-title').innerText = name;
@@ -128,7 +157,6 @@
             document.getElementById('editor-modal').style.display = 'none';
         }
 
-        // 运行逻辑（全屏沉浸）
         function runFile(name) {
             const runner = document.getElementById('runner-screen');
             const viewer = document.getElementById('viewer');
@@ -137,16 +165,11 @@
             runner.style.display = 'block';
             exitBtn.style.opacity = '1';
             
-            // 模拟退出键位置（固定在右上角，带自动淡出）
-            exitBtn.style.top = '20px';
-            exitBtn.style.right = '20px';
-            
             const doc = viewer.contentDocument || viewer.contentWindow.document;
             doc.open();
             doc.write(files[name]);
             doc.close();
 
-            // 3秒后自动淡出退出键
             setTimeout(() => { exitBtn.style.opacity = '0.3'; }, 3000);
         }
 
@@ -154,14 +177,14 @@
             document.getElementById('runner-screen').style.display = 'none';
         }
 
-        // 简单的拖拽模拟
-        const dragBtn = document.getElementById('floating-exit');
-        dragBtn.onmousedown = function(e) {
-            dragBtn.style.opacity = '1';
-            // 此处可添加更复杂的拖拽逻辑，原型演示点击即可
-        };
-
         renderList();
+
+        // 阻止 iOS 下拉刷新的橡皮筋效果，进一步固定全屏
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.tagName !== 'TEXTAREA' && !document.getElementById('file-list').contains(e.target)) {
+                e.preventDefault();
+            }
+        }, { passive: false });
     </script>
 </body>
 </html>
