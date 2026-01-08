@@ -3,207 +3,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>TNAA Explorer 原型预览</title>
+    <meta name="format-detection" content="telephone=no">
+    
+    <title>TNAA Dark</title>
+    
     <style>
-        :root { --bg: #ffffff; --text: #000000; --border: #eeeeee; --subText: #666666; --row: #ffffff; --accent: #007AFF; }
-        @media (prefers-color-scheme: dark) {
-            :root { --bg: #000000; --text: #ffffff; --border: #222222; --subText: #888888; --row: #000000; }
-        }
-
-        /* 关键 3: 强制锁定视口，防止滑动时把工具栏拽出来 */
-        html, body { 
-            font-family: -apple-system, sans-serif; 
-            margin: 0; 
-            padding: 0;
-            background: var(--bg); 
-            color: var(--text); 
-            height: 100%;
-            width: 100%;
-            overflow: hidden; 
-            position: fixed; 
-        }
+        /* --- 全局重置 --- */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
-        /* 列表页适配刘海屏高度 */
-        .header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: calc(20px + env(safe-area-inset-top)) 20px 20px; 
-            border-bottom: 1px solid var(--border); 
-        }
-        .title { font-size: 22px; font-weight: 900; }
-        .add-btn { background: var(--accent); color: white; padding: 8px 16px; border-radius: 20px; border: none; font-weight: bold; }
-        
-        #file-list { height: calc(100vh - 120px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
-        .file-item { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
-        .file-info { flex: 1; padding: 20px; cursor: pointer; }
-        .icon-btn { padding: 12px; cursor: pointer; font-size: 18px; border: none; background: none; }
-
-        /* 编辑模态框 */
-        #editor-modal { 
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: var(--bg); z-index: 200; flex-direction: column; 
-            padding-top: env(safe-area-inset-top);
-        }
-        .modal-header { display: flex; justify-content: space-between; padding: 15px; border-bottom: 1px solid var(--border); align-items: center; }
-        textarea { flex: 1; width: 100%; border: none; padding: 15px; font-family: monospace; font-size: 16px; background: var(--bg); color: var(--text); outline: none; }
-
-        /* 关键 4: 运行界面强制填满每一像素 */
-        #runner-screen { 
-            display: none; 
-            position: fixed; 
-            top: 0; left: 0; right: 0; bottom: 0; /* 强制拉伸 */
-            width: 100vw; 
-            height: 100vh; 
-            background: #000; 
-            z-index: 300; 
-            overflow: hidden;
-        }
-        
-        /* 关键 5: iframe 彻底填充，不留边距 */
-        iframe { 
-            position: absolute;
-            top: 0; left: 0;
-            width: 100% !important; 
-            height: 100% !important; 
-            border: none; 
+        /* 根布局：纯黑，禁止溢出，锁定位置 */
+        html, body {
             margin: 0;
             padding: 0;
-            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: #000000; /* 纯黑背景 */
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Mono", monospace;
+            overflow: hidden; /* 核心：禁止橡皮筋效果 */
+            position: fixed; /* 核心：钉死在屏幕上 */
         }
 
-        #floating-exit {
-            position: absolute; width: 44px; height: 44px; border-radius: 22px;
-            background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
-            color: white; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; font-weight: bold; z-index: 400; transition: opacity 0.8s;
-            /* 避开顶部的系统时间 */
-            top: calc(15px + env(safe-area-inset-top)); 
+        /* --- 1. 文件列表界面 (Main UI) --- */
+        #app-ui {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding-top: env(safe-area-inset-top); /* 避开刘海 */
+            padding-bottom: env(safe-area-inset-bottom); /* 避开底部横条 */
+        }
+
+        .header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+        
+        /* 霓虹绿按钮，在纯黑背景下很醒目 */
+        .btn-new {
+            background: #00ff00; color: #000; border: none;
+            padding: 6px 16px; border-radius: 4px; font-weight: 900;
+            font-size: 14px; text-transform: uppercase;
+        }
+
+        #file-list {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .file-row {
+            padding: 18px 20px;
+            border-bottom: 1px solid #1a1a1a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .file-row:active { background: #1a1a1a; }
+        .file-name { font-size: 16px; color: #ddd; }
+        .file-actions button {
+            background: none; border: 1px solid #333; color: #888;
+            margin-left: 10px; padding: 4px 10px; border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* --- 2. 编辑器界面 (Overlay) --- */
+        #editor-layer {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #000; z-index: 50;
+            flex-direction: column;
+            padding-top: env(safe-area-inset-top);
+        }
+        .editor-bar {
+            padding: 10px 20px;
+            display: flex; justify-content: space-between;
+            border-bottom: 1px solid #333;
+            background: #000;
+        }
+        .btn-text { background: none; border: none; color: #00ff00; font-weight: bold; font-size: 16px; }
+        .btn-cancel { color: #ff3b30; }
+        
+        textarea#code-area {
+            flex: 1; width: 100%; border: none; 
+            background: #080808; color: #00ff00; /* 黑客风格配色 */
+            padding: 15px; font-family: "SF Mono", Menlo, monospace;
+            font-size: 14px; line-height: 1.5; outline: none; resize: none;
+        }
+
+        /* --- 3. 运行界面 (Runner) - 这里的全屏逻辑最重要 --- */
+        #runner-layer {
+            display: none;
+            position: fixed; 
+            top: 0; left: 0; bottom: 0; right: 0; /* 强力拉伸 */
+            width: 100vw; height: 100vh;
+            background: #000; 
+            z-index: 100; /* 最顶层 */
+        }
+
+        #runner-iframe {
+            width: 100%; height: 100%;
+            border: none; display: block;
+            background: #fff; /* 默认网页背景是白的，防止透出黑底 */
+        }
+
+        /* 悬浮退出按钮 */
+        #exit-fab {
+            position: absolute;
+            top: calc(15px + env(safe-area-inset-top));
             right: 20px;
+            width: 40px; height: 40px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; cursor: pointer;
+            z-index: 101;
+            backdrop-filter: blur(4px);
         }
     </style>
 </head>
 <body>
 
-    <div id="app">
+    <div id="app-ui">
         <div class="header">
-            <div>
-                <div class="title">TNAA Explorer</div>
-                <div style="font-size: 12px; color: var(--subText); margin-top: 4px;">沉浸式全屏预览模式</div>
+            <h1>TNAA_DARK</h1>
+            <button class="btn-new" onclick="newFile()">+ NEW</button>
+        </div>
+        <div id="file-list">
             </div>
-            <button class="add-btn" onclick="createNewFile()">+ 新建</button>
-        </div>
-        <div id="file-list"></div>
     </div>
 
-    <div id="editor-modal">
-        <div class="modal-header">
-            <span style="color: #FF3B30; cursor: pointer;" onclick="closeEditor()">取消</span>
-            <b id="editor-title">代码编辑</b>
-            <span style="color: var(--accent); font-weight: bold; cursor: pointer;" onclick="saveFile()">保存</span>
+    <div id="editor-layer">
+        <div class="editor-bar">
+            <button class="btn-text btn-cancel" onclick="closeEditor()">Cancel</button>
+            <span style="color:#666; font-size:12px; line-height:24px;">EDITOR</span>
+            <button class="btn-text" onclick="saveFile()">Save</button>
         </div>
-        <textarea id="code-input" spellcheck="false"></textarea>
+        <textarea id="code-area" spellcheck="false" autocapitalize="off"></textarea>
     </div>
 
-    <div id="runner-screen">
-        <div id="floating-exit" onclick="closeRunner()">✕</div>
-        <iframe id="viewer" scrolling="no"></iframe>
+    <div id="runner-layer">
+        <div id="exit-fab" onclick="exitRunner()">✕</div>
+        <iframe id="runner-iframe"></iframe>
     </div>
 
     <script>
-        // 存储与列表逻辑
-        let files = JSON.parse(localStorage.getItem('tnaa_files')) || {
-            'index.html': `<html>
+        // 数据存储
+        let files = JSON.parse(localStorage.getItem('tnaa_dark_files')) || {
+            'index.html': `<!DOCTYPE html>
+<html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #b53f3f; color: white; display: flex; justify-content: center; align-items: center; font-family: sans-serif; }
+        /* 这里的 CSS 决定了你看到的画面是否全屏 */
+        body { 
+            margin: 0; 
+            background: #111; 
+            color: #00ff00; 
+            height: 100vh; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-family: monospace;
+            text-align: center;
+        }
+        h1 { font-size: 2rem; border: 2px solid #00ff00; padding: 10px; }
     </style>
 </head>
 <body>
-    <div style="text-align:center;">
-        <h1>全屏测试成功</h1>
-        <p>画面已填满底部区域</p>
+    <div>
+        <h1>SYSTEM READY</h1>
+        <p>Full Screen Active</p>
     </div>
 </body>
 </html>`
         };
+        let currentEditing = null;
 
-        function renderList() {
-            const list = document.getElementById('file-list');
-            list.innerHTML = '';
-            Object.keys(files).sort().forEach(name => {
-                list.innerHTML += `
-                    <div class="file-item">
-                        <div class="file-info" onclick="runFile('${name}')">📄 ${name}</div>
-                        <div class="action-group">
-                            <button class="icon-btn" onclick="alert('分享中...')">📤</button>
-                            <button class="icon-btn" onclick="openEditor('${name}')">📝</button>
-                        </div>
-                    </div>`;
+        const listEl = document.getElementById('file-list');
+        const editorLayer = document.getElementById('editor-layer');
+        const codeArea = document.getElementById('code-area');
+        const runnerLayer = document.getElementById('runner-layer');
+        const iframe = document.getElementById('runner-iframe');
+
+        // --- 核心功能：列表渲染 ---
+        function render() {
+            listEl.innerHTML = '';
+            Object.keys(files).forEach(name => {
+                const row = document.createElement('div');
+                row.className = 'file-row';
+                row.innerHTML = `
+                    <div class="file-name" onclick="run('${name}')">📄 ${name}</div>
+                    <div class="file-actions">
+                        <button onclick="edit('${name}')">EDIT</button>
+                    </div>
+                `;
+                listEl.appendChild(row);
             });
-            localStorage.setItem('tnaa_files', JSON.stringify(files));
+            localStorage.setItem('tnaa_dark_files', JSON.stringify(files));
         }
 
-        // 关键 6: 运行逻辑，强制注入 viewport-fit=cover
-        function runFile(name) {
-            const runner = document.getElementById('runner-screen');
-            const viewer = document.getElementById('viewer');
-            const exitBtn = document.getElementById('floating-exit');
+        // --- 核心功能：运行 (The Magic Fix) ---
+        function run(name) {
+            runnerLayer.style.display = 'block';
             
-            runner.style.display = 'block';
-            exitBtn.style.opacity = '1';
-            
-            const doc = viewer.contentDocument || viewer.contentWindow.document;
+            // 1. 获取用户代码
             let code = files[name];
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
 
-            // 自动检查并注入必要的 Meta 标签，确保子页面也是全屏的
-            if(!code.includes('viewport-fit=cover')) {
-                code = `<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">${code}`;
+            // 2. 构造“防偏移”注射剂
+            // 无论用户代码怎么写，我们强制注入这段 Meta 和 CSS
+            // 这段代码会强制把内部页面的 <html> 和 <body> 撑满，不留任何安全区死角
+            const injection = `
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+                <style>
+                    html, body {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        width: 100vw !important;
+                        height: 100vh !important;
+                        overflow: hidden; /* 防止内部滚动导致外部偏移 */
+                    }
+                </style>
+            `;
+
+            // 3. 注入逻辑
+            if (code.includes('<head>')) {
+                code = code.replace('<head>', '<head>' + injection);
+            } else {
+                code = injection + code;
             }
 
+            // 4. 写入并渲染
             doc.open();
             doc.write(code);
             doc.close();
-
-            // 强制刷新 iframe 高度（适配 iOS 渲染延迟）
-            setTimeout(() => {
-                viewer.style.height = '100vh';
-            }, 50);
-
-            setTimeout(() => { exitBtn.style.opacity = '0.3'; }, 3000);
         }
 
-        function closeRunner() { document.getElementById('runner-screen').style.display = 'none'; }
-        function openEditor(name) {
-            currentEditingName = name;
-            document.getElementById('editor-title').innerText = name;
-            document.getElementById('code-input').value = files[name];
-            document.getElementById('editor-modal').style.display = 'flex';
+        function exitRunner() {
+            runnerLayer.style.display = 'none';
+            // 清理 iframe 防止视频/音频后台播放
+            iframe.src = 'about:blank';
         }
+
+        // --- 编辑器逻辑 ---
+        function edit(name) {
+            currentEditing = name;
+            codeArea.value = files[name];
+            editorLayer.style.display = 'flex';
+        }
+
         function saveFile() {
-            files[currentEditingName] = document.getElementById('code-input').value;
-            closeEditor();
-            renderList();
-        }
-        function closeEditor() { document.getElementById('editor-modal').style.display = 'none'; }
-        function createNewFile() {
-            const name = prompt("文件名", "new.html");
-            if (!name) return;
-            files[name] = '<html><body style="background:#fff"><h1>Hello</h1></body></html>';
-            renderList();
+            if (currentEditing) {
+                files[currentEditing] = codeArea.value;
+                render();
+                closeEditor();
+            }
         }
 
-        // 彻底禁止首页弹性滑动，防止拽出工具栏
+        function closeEditor() {
+            editorLayer.style.display = 'none';
+            codeArea.blur(); // 收起键盘
+        }
+
+        function newFile() {
+            const name = prompt("Filename:", "untitled.html");
+            if (name) {
+                files[name] = "<h1>New File</h1>";
+                render();
+            }
+        }
+
+        // --- 初始化 ---
+        render();
+
+        // 阻止 iOS Safari 默认的橡皮筋拖拽，这是造成“偏移”的元凶之一
         document.addEventListener('touchmove', function(e) {
-            if (!document.getElementById('file-list').contains(e.target)) {
+            // 只有在文件列表或编辑器文字区允许滚动，其他地方禁止
+            if (!listEl.contains(e.target) && e.target !== codeArea) {
                 e.preventDefault();
             }
         }, { passive: false });
 
-        renderList();
     </script>
 </body>
 </html>
