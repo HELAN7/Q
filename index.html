@@ -8,62 +8,56 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
     
-    <title>TNAA Dark</title>
+    <title>TNAA Dark Fixed</title>
     
     <style>
         /* --- 全局重置 --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
-        /* 根布局：纯黑，禁止溢出，锁定位置 */
+        /* 根布局：纯黑，钉死位置，防止外层滚动导致的偏移 */
         html, body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            background-color: #000000; /* 纯黑背景 */
+            background-color: #000000;
             color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "SF Mono", monospace;
-            overflow: hidden; /* 核心：禁止橡皮筋效果 */
-            position: fixed; /* 核心：钉死在屏幕上 */
+            overflow: hidden; 
+            position: fixed; /* 物理锁定 */
+            inset: 0; /* 强行拉伸至四角 */
         }
 
-        /* --- 1. 文件列表界面 (Main UI) --- */
+        /* --- 1. 文件列表界面 (保持原设计) --- */
         #app-ui {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             display: flex;
             flex-direction: column;
-            height: 100%;
-            padding-top: env(safe-area-inset-top); /* 避开刘海 */
-            padding-bottom: env(safe-area-inset-bottom); /* 避开底部横条 */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            z-index: 10;
         }
 
         .header {
             padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid #333;
+            background: #000;
         }
         .header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 1px; }
         
-        /* 霓虹绿按钮，在纯黑背景下很醒目 */
         .btn-new {
             background: #00ff00; color: #000; border: none;
             padding: 6px 16px; border-radius: 4px; font-weight: 900;
             font-size: 14px; text-transform: uppercase;
         }
 
-        #file-list {
-            flex: 1;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
+        #file-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
         .file-row {
             padding: 18px 20px;
             border-bottom: 1px solid #1a1a1a;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: flex; justify-content: space-between; align-items: center;
             transition: background 0.2s;
         }
         .file-row:active { background: #1a1a1a; }
@@ -74,7 +68,7 @@
             font-size: 12px;
         }
 
-        /* --- 2. 编辑器界面 (Overlay) --- */
+        /* --- 2. 编辑器界面 (保持原设计) --- */
         #editor-layer {
             display: none;
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -93,28 +87,35 @@
         
         textarea#code-area {
             flex: 1; width: 100%; border: none; 
-            background: #080808; color: #00ff00; /* 黑客风格配色 */
+            background: #080808; color: #00ff00;
             padding: 15px; font-family: "SF Mono", Menlo, monospace;
             font-size: 14px; line-height: 1.5; outline: none; resize: none;
         }
 
-        /* --- 3. 运行界面 (Runner) - 这里的全屏逻辑最重要 --- */
+        /* --- 3. 运行界面 (修复偏移的核心区域) --- */
         #runner-layer {
             display: none;
+            /* 【关键修改】不再使用 width/height，而是强制钉死四角 */
             position: fixed; 
-            top: 0; left: 0; bottom: 0; right: 0; /* 强力拉伸 */
-            width: 100vw; height: 100vh;
+            top: 0 !important; 
+            bottom: 0 !important;
+            left: 0 !important; 
+            right: 0 !important;
+            
             background: #000; 
-            z-index: 100; /* 最顶层 */
+            z-index: 100;
+            margin: 0; padding: 0;
         }
 
         #runner-iframe {
+            /* Iframe 绝对定位填满这个被钉死的容器 */
+            position: absolute;
+            top: 0; left: 0;
             width: 100%; height: 100%;
             border: none; display: block;
-            background: #fff; /* 默认网页背景是白的，防止透出黑底 */
+            background: #000; /* 默认黑底 */
         }
 
-        /* 悬浮退出按钮 */
         #exit-fab {
             position: absolute;
             top: calc(15px + env(safe-area-inset-top));
@@ -138,8 +139,7 @@
             <h1>TNAA_DARK</h1>
             <button class="btn-new" onclick="newFile()">+ NEW</button>
         </div>
-        <div id="file-list">
-            </div>
+        <div id="file-list"></div>
     </div>
 
     <div id="editor-layer">
@@ -158,31 +158,32 @@
 
     <script>
         // 数据存储
-        let files = JSON.parse(localStorage.getItem('tnaa_dark_files')) || {
+        let files = JSON.parse(localStorage.getItem('tnaa_dark_v2')) || {
             'index.html': `<!DOCTYPE html>
 <html>
 <head>
     <style>
-        /* 这里的 CSS 决定了你看到的画面是否全屏 */
         body { 
             margin: 0; 
-            background: #111; 
+            /* 你的设计是黑色，这里保持一致 */
+            background: #000; 
             color: #00ff00; 
             height: 100vh; 
             display: flex; 
+            flex-direction: column;
             justify-content: center; 
             align-items: center; 
             font-family: monospace;
             text-align: center;
+            border: 2px solid red; /* 这是一个测试边框，看看红线是否贴边 */
+            box-sizing: border-box;
         }
-        h1 { font-size: 2rem; border: 2px solid #00ff00; padding: 10px; }
+        h1 { font-size: 2rem; border: 1px solid #00ff00; padding: 10px; }
     </style>
 </head>
 <body>
-    <div>
-        <h1>SYSTEM READY</h1>
-        <p>Full Screen Active</p>
-    </div>
+    <h1>SYSTEM READY</h1>
+    <p>Border Check: Red line should touch edges</p>
 </body>
 </html>`
         };
@@ -194,7 +195,6 @@
         const runnerLayer = document.getElementById('runner-layer');
         const iframe = document.getElementById('runner-iframe');
 
-        // --- 核心功能：列表渲染 ---
         function render() {
             listEl.innerHTML = '';
             Object.keys(files).forEach(name => {
@@ -208,41 +208,40 @@
                 `;
                 listEl.appendChild(row);
             });
-            localStorage.setItem('tnaa_dark_files', JSON.stringify(files));
+            localStorage.setItem('tnaa_dark_v2', JSON.stringify(files));
         }
 
-        // --- 核心功能：运行 (The Magic Fix) ---
+        // --- 核心修复：防偏移运行逻辑 ---
         function run(name) {
+            // 1. 显示层
             runnerLayer.style.display = 'block';
             
-            // 1. 获取用户代码
+            // 2. 【关键】强制重置外层滚动位置，防止“框”被顶上去
+            window.scrollTo(0, 0);
+
+            // 3. 准备代码
             let code = files[name];
             const doc = iframe.contentDocument || iframe.contentWindow.document;
 
-            // 2. 构造“防偏移”注射剂
-            // 无论用户代码怎么写，我们强制注入这段 Meta 和 CSS
-            // 这段代码会强制把内部页面的 <html> 和 <body> 撑满，不留任何安全区死角
+            // 4. 注入全屏“强力胶水”
             const injection = `
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
                 <style>
                     html, body {
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        width: 100vw !important;
-                        height: 100vh !important;
-                        overflow: hidden; /* 防止内部滚动导致外部偏移 */
+                        margin: 0 !important; padding: 0 !important;
+                        width: 100% !important; height: 100% !important;
+                        overflow: hidden; /* 防止双滚动条 */
                     }
                 </style>
             `;
 
-            // 3. 注入逻辑
             if (code.includes('<head>')) {
                 code = code.replace('<head>', '<head>' + injection);
             } else {
                 code = injection + code;
             }
 
-            // 4. 写入并渲染
+            // 5. 渲染
             doc.open();
             doc.write(code);
             doc.close();
@@ -250,11 +249,9 @@
 
         function exitRunner() {
             runnerLayer.style.display = 'none';
-            // 清理 iframe 防止视频/音频后台播放
             iframe.src = 'about:blank';
         }
 
-        // --- 编辑器逻辑 ---
         function edit(name) {
             currentEditing = name;
             codeArea.value = files[name];
@@ -271,7 +268,7 @@
 
         function closeEditor() {
             editorLayer.style.display = 'none';
-            codeArea.blur(); // 收起键盘
+            codeArea.blur(); 
         }
 
         function newFile() {
@@ -282,12 +279,10 @@
             }
         }
 
-        // --- 初始化 ---
         render();
 
-        // 阻止 iOS Safari 默认的橡皮筋拖拽，这是造成“偏移”的元凶之一
+        // 依然保留这个防拖拽，双重保险
         document.addEventListener('touchmove', function(e) {
-            // 只有在文件列表或编辑器文字区允许滚动，其他地方禁止
             if (!listEl.contains(e.target) && e.target !== codeArea) {
                 e.preventDefault();
             }
