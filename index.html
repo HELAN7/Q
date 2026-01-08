@@ -6,129 +6,68 @@
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-title" content="TNAA Sandbox">
+    <link rel="manifest" href="manifest.json">
     
-    <title>TNAA Dark Fixed</title>
-    
+    <title>TNAA Sandbox Pro</title>
     <style>
-        /* --- 全局重置 --- */
+        /* --- 视觉风格 --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
-        /* 根布局：纯黑，钉死位置，防止外层滚动导致的偏移 */
         html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000000;
-            color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Mono", monospace;
-            overflow: hidden; 
-            position: fixed; /* 物理锁定 */
-            inset: 0; /* 强行拉伸至四角 */
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #000; color: #fff;
+            font-family: -apple-system, "SF Mono", "Menlo", monospace;
+            overflow: hidden; position: fixed;
         }
 
-        /* --- 1. 文件列表界面 (保持原设计) --- */
-        #app-ui {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            display: flex;
-            flex-direction: column;
-            padding-top: env(safe-area-inset-top);
+        #app-ui { 
+            display: flex; flex-direction: column; height: 100%; 
+            padding-top: env(safe-area-inset-top); 
             padding-bottom: env(safe-area-inset-bottom);
-            z-index: 10;
         }
 
-        .header {
-            padding: 20px;
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #333;
-            background: #000;
+        .header { 
+            padding: 20px; display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid #222; background: #000;
         }
-        .header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+        .header h1 { margin: 0; font-size: 18px; letter-spacing: 2px; color: #0f0; transition: color 0.3s; }
         
-        .btn-new {
-            background: #00ff00; color: #000; border: none;
-            padding: 6px 16px; border-radius: 4px; font-weight: 900;
-            font-size: 14px; text-transform: uppercase;
+        .btn-new { 
+            background: #0f0; color: #000; border: none; padding: 8px 16px; 
+            border-radius: 4px; font-weight: 900; font-size: 12px; 
         }
+        .btn-new:disabled { background: #333; color: #666; }
 
         #file-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .file-row { padding: 18px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center; }
+        .file-row:active { background: #111; }
+        .file-name { font-size: 16px; color: #ccc; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
 
-        .file-row {
-            padding: 18px 20px;
-            border-bottom: 1px solid #1a1a1a;
-            display: flex; justify-content: space-between; align-items: center;
-            transition: background 0.2s;
-        }
-        .file-row:active { background: #1a1a1a; }
-        .file-name { font-size: 16px; color: #ddd; }
-        .file-actions button {
-            background: none; border: 1px solid #333; color: #888;
-            margin-left: 10px; padding: 4px 10px; border-radius: 4px;
-            font-size: 12px;
-        }
+        .file-actions { display: flex; gap: 8px; }
+        .file-actions button { background: #111; border: 1px solid #333; color: #888; padding: 5px 10px; border-radius: 4px; font-size: 11px; }
+        .btn-del { color: #ff3b30 !important; }
 
-        /* --- 2. 编辑器界面 (保持原设计) --- */
-        #editor-layer {
-            display: none;
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: #000; z-index: 50;
-            flex-direction: column;
-            padding-top: env(safe-area-inset-top);
-        }
-        .editor-bar {
-            padding: 10px 20px;
-            display: flex; justify-content: space-between;
-            border-bottom: 1px solid #333;
-            background: #000;
-        }
-        .btn-text { background: none; border: none; color: #00ff00; font-weight: bold; font-size: 16px; }
+        /* 编辑器层 */
+        #editor-layer { display: none; position: fixed; inset: 0; background: #000; z-index: 50; flex-direction: column; padding-top: env(safe-area-inset-top); }
+        .editor-bar { padding: 10px 20px; display: flex; justify-content: space-between; border-bottom: 1px solid #222; }
+        .btn-text { background: none; border: none; color: #0f0; font-weight: bold; font-size: 15px; padding: 5px; }
+        .btn-text:disabled { color: #333; }
         .btn-cancel { color: #ff3b30; }
         
         textarea#code-area {
-            flex: 1; width: 100%; border: none; 
-            background: #080808; color: #00ff00;
+            flex: 1; width: 100%; border: none; background: #050505; color: #0f0;
             padding: 15px; font-family: "SF Mono", Menlo, monospace;
             font-size: 14px; line-height: 1.5; outline: none; resize: none;
         }
 
-        /* --- 3. 运行界面 (修复偏移的核心区域) --- */
-        #runner-layer {
-            display: none;
-            /* 【关键修改】不再使用 width/height，而是强制钉死四角 */
-            position: fixed; 
-            top: 0 !important; 
-            bottom: 0 !important;
-            left: 0 !important; 
-            right: 0 !important;
-            
-            background: #000; 
-            z-index: 100;
-            margin: 0; padding: 0;
-        }
-
-        #runner-iframe {
-            /* Iframe 绝对定位填满这个被钉死的容器 */
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            border: none; display: block;
-            background: #000; /* 默认黑底 */
-        }
-
+        /* 运行层 */
+        #runner-layer { display: none; position: fixed; inset: 0; background: #fff; z-index: 100; }
+        #runner-iframe { width: 100%; height: 100%; border: none; }
         #exit-fab {
-            position: absolute;
-            top: calc(15px + env(safe-area-inset-top));
-            right: 20px;
-            width: 40px; height: 40px;
-            background: rgba(0,0,0,0.6);
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            color: #fff;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; cursor: pointer;
-            z-index: 101;
-            backdrop-filter: blur(4px);
+            position: absolute; top: calc(15px + env(safe-area-inset-top)); right: 20px;
+            width: 36px; height: 36px; background: rgba(0,0,0,0.5); border-radius: 50%;
+            color: #fff; display: flex; align-items: center; justify-content: center; 
+            z-index: 101; font-size: 18px; backdrop-filter: blur(5px);
         }
     </style>
 </head>
@@ -136,158 +75,189 @@
 
     <div id="app-ui">
         <div class="header">
-            <h1>TNAA_DARK</h1>
-            <button class="btn-new" onclick="newFile()">+ NEW</button>
+            <h1 id="app-title">TNAA_SANDBOX</h1>
+            <button id="nav-btn-new" class="btn-new" onclick="actionNew()">+ NEW</button>
         </div>
         <div id="file-list"></div>
     </div>
 
     <div id="editor-layer">
         <div class="editor-bar">
-            <button class="btn-text btn-cancel" onclick="closeEditor()">Cancel</button>
-            <span style="color:#666; font-size:12px; line-height:24px;">EDITOR</span>
-            <button class="btn-text" onclick="saveFile()">Save</button>
+            <button class="btn-text btn-cancel" onclick="uiCloseEditor()">CLOSE</button>
+            <span id="editor-title" style="color:#555; font-size:11px; line-height:30px;">EDITOR</span>
+            <button id="nav-btn-save" class="btn-text" onclick="actionSave()">SAVE & RUN</button>
         </div>
-        <textarea id="code-area" spellcheck="false" autocapitalize="off"></textarea>
+        <textarea id="code-area" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"></textarea>
     </div>
 
     <div id="runner-layer">
-        <div id="exit-fab" onclick="exitRunner()">✕</div>
+        <div id="exit-fab" onclick="uiCloseRunner()">✕</div>
         <iframe id="runner-iframe"></iframe>
     </div>
 
-    <script>
-        // 数据存储
-        let files = JSON.parse(localStorage.getItem('tnaa_dark_v2')) || {
-            'index.html': `<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body { 
-            margin: 0; 
-            /* 你的设计是黑色，这里保持一致 */
-            background: #000; 
-            color: #00ff00; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column;
-            justify-content: center; 
-            align-items: center; 
-            font-family: monospace;
-            text-align: center;
-            border: 2px solid red; /* 这是一个测试边框，看看红线是否贴边 */
-            box-sizing: border-box;
+<script>
+    /* --- 核心逻辑 --- */
+    const DB_KEY = 'tnaa_vfs_v1';
+    let projects = [];
+    try {
+        projects = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
+    } catch(e) { projects = []; }
+    
+    let activeId = null;
+    let currentBlobUrl = null;
+
+    const domList = document.getElementById('file-list');
+    const domEditor = document.getElementById('editor-layer');
+    const domCode = document.getElementById('code-area');
+    const domRunner = document.getElementById('runner-layer');
+    const domIframe = document.getElementById('runner-iframe');
+
+    // 状态检查：离线拦截
+    function isOffline() {
+        if (!navigator.onLine) {
+            alert("OFFLINE MODE: Cannot modify files.");
+            return true;
         }
-        h1 { font-size: 2rem; border: 1px solid #00ff00; padding: 10px; }
-    </style>
-</head>
-<body>
-    <h1>SYSTEM READY</h1>
-    <p>Border Check: Red line should touch edges</p>
-</body>
-</html>`
-        };
-        let currentEditing = null;
+        return false;
+    }
 
-        const listEl = document.getElementById('file-list');
-        const editorLayer = document.getElementById('editor-layer');
-        const codeArea = document.getElementById('code-area');
-        const runnerLayer = document.getElementById('runner-layer');
-        const iframe = document.getElementById('runner-iframe');
-
-        function render() {
-            listEl.innerHTML = '';
-            Object.keys(files).forEach(name => {
-                const row = document.createElement('div');
-                row.className = 'file-row';
-                row.innerHTML = `
-                    <div class="file-name" onclick="run('${name}')">📄 ${name}</div>
-                    <div class="file-actions">
-                        <button onclick="edit('${name}')">EDIT</button>
-                    </div>
-                `;
-                listEl.appendChild(row);
-            });
-            localStorage.setItem('tnaa_dark_v2', JSON.stringify(files));
+    function updateOnlineUI() {
+        const title = document.getElementById('app-title');
+        const btnNew = document.getElementById('nav-btn-new');
+        const btnSave = document.getElementById('nav-btn-save');
+        
+        if (!navigator.onLine) {
+            title.innerText = "TNAA_OFFLINE";
+            title.style.color = "#444";
+            btnNew.disabled = true;
+            btnSave.disabled = true;
+        } else {
+            title.innerText = "TNAA_SANDBOX";
+            title.style.color = "#0f0";
+            btnNew.disabled = false;
+            btnSave.disabled = false;
         }
+    }
 
-        // --- 核心修复：防偏移运行逻辑 ---
-        function run(name) {
-            // 1. 显示层
-            runnerLayer.style.display = 'block';
-            
-            // 2. 【关键】强制重置外层滚动位置，防止“框”被顶上去
-            window.scrollTo(0, 0);
+    function dbSave() {
+        localStorage.setItem(DB_KEY, JSON.stringify(projects));
+        renderList();
+    }
 
-            // 3. 准备代码
-            let code = files[name];
-            const doc = iframe.contentDocument || iframe.contentWindow.document;
-
-            // 4. 注入全屏“强力胶水”
-            const injection = `
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-                <style>
-                    html, body {
-                        margin: 0 !important; padding: 0 !important;
-                        width: 100% !important; height: 100% !important;
-                        overflow: hidden; /* 防止双滚动条 */
-                    }
-                </style>
+    function renderList() {
+        domList.innerHTML = '';
+        projects.forEach(p => {
+            const row = document.createElement('div');
+            row.className = 'file-row';
+            row.innerHTML = `
+                <div class="file-name" onclick="actionRun('${p.id}')">📄 ${escapeHtml(p.name)}</div>
+                <div class="file-actions">
+                    <button onclick="uiOpenEditor('${p.id}')">EDIT</button>
+                    <button class="btn-del" onclick="actionDelete('${p.id}', event)">DEL</button>
+                </div>
             `;
+            domList.appendChild(row);
+        });
+    }
 
-            if (code.includes('<head>')) {
-                code = code.replace('<head>', '<head>' + injection);
-            } else {
-                code = injection + code;
-            }
+    function actionNew() {
+        if (isOffline()) return;
+        const name = prompt("File Name:", "index.html");
+        if (!name) return;
+        const newProj = {
+            id: 'id_' + Date.now(),
+            name: name,
+            code: '<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <title>New Page</title>\n  <style>body{background:#000; color:#0f0; font-family:monospace; padding:20px;}</style>\n</head>\n<body>\n  <h1>HELLO WORLD</h1>\n</body>\n</html>'
+        };
+        projects.unshift(newProj);
+        dbSave();
+    }
 
-            // 5. 渲染
-            doc.open();
-            doc.write(code);
-            doc.close();
+    function uiOpenEditor(id) {
+        const p = projects.find(x => x.id === id);
+        if (!p) return;
+        activeId = id;
+        document.getElementById('editor-title').innerText = p.name.toUpperCase();
+        domCode.value = p.code;
+        domEditor.style.display = 'flex';
+    }
+
+    function actionSave() {
+        if (isOffline()) return;
+        const idx = projects.findIndex(x => x.id === activeId);
+        if (idx !== -1) {
+            projects[idx].code = domCode.value;
+            dbSave();
+            actionRun(activeId); 
         }
+    }
 
-        function exitRunner() {
-            runnerLayer.style.display = 'none';
-            iframe.src = 'about:blank';
+    function actionDelete(id, e) {
+        if (isOffline()) return;
+        if(e) e.stopPropagation();
+        if (confirm("DELETE THIS FILE?")) {
+            projects = projects.filter(x => x.id !== id);
+            dbSave();
         }
+    }
 
-        function edit(name) {
-            currentEditing = name;
-            codeArea.value = files[name];
-            editorLayer.style.display = 'flex';
+    function actionRun(id) {
+        const p = projects.find(x => x.id === id);
+        if (!p) return;
+        if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+
+        domRunner.style.display = 'block';
+        const patch = `<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;}</style>`;
+        let fullCode = p.code;
+        fullCode = /<head>/i.test(fullCode) ? fullCode.replace(/<head>/i, '<head>' + patch) : patch + fullCode;
+
+        const blob = new Blob([fullCode], { type: 'text/html' });
+        currentBlobUrl = URL.createObjectURL(blob);
+        domIframe.src = currentBlobUrl;
+    }
+
+    function uiCloseEditor() { domEditor.style.display = 'none'; domCode.blur(); }
+    function uiCloseRunner() { 
+        domRunner.style.display = 'none'; 
+        domIframe.src = 'about:blank';
+        if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    }
+
+    // 辅助功能：Tab 键缩进
+    domCode.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            this.value = this.value.substring(0, start) + "  " + this.value.substring(end);
+            this.selectionStart = this.selectionEnd = start + 2;
         }
+    });
 
-        function saveFile() {
-            if (currentEditing) {
-                files[currentEditing] = codeArea.value;
-                render();
-                closeEditor();
-            }
-        }
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
 
-        function closeEditor() {
-            editorLayer.style.display = 'none';
-            codeArea.blur(); 
-        }
+    // PWA: Service Worker 注册
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
+        });
+    }
 
-        function newFile() {
-            const name = prompt("Filename:", "untitled.html");
-            if (name) {
-                files[name] = "<h1>New File</h1>";
-                render();
-            }
-        }
+    window.addEventListener('online', updateOnlineUI);
+    window.addEventListener('offline', updateOnlineUI);
+    
+    // 初始化
+    renderList();
+    updateOnlineUI();
 
-        render();
-
-        // 依然保留这个防拖拽，双重保险
-        document.addEventListener('touchmove', function(e) {
-            if (!listEl.contains(e.target) && e.target !== codeArea) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-
-    </script>
+    // 防止 iOS 橡皮筋
+    document.addEventListener('touchmove', (e) => {
+        if (!domList.contains(e.target) && e.target !== domCode) e.preventDefault();
+    }, { passive: false });
+</script>
 </body>
 </html>
