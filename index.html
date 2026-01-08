@@ -11,19 +11,25 @@
     
     <title>TNAA Sandbox Pro</title>
     <style>
-        /* --- 视觉风格 --- */
+        /* --- 视觉风格与全屏布局修复 --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
         html, body {
-            margin: 0; padding: 0; width: 100%; height: 100%;
+            margin: 0; padding: 0; 
+            width: 100vw; 
+            height: 100dvh; /* 使用动态视口高度，解决 iOS 留白问题 */
             background-color: #000; color: #fff;
             font-family: -apple-system, "SF Mono", "Menlo", monospace;
-            overflow: hidden; position: fixed;
+            overflow: hidden; 
+            position: fixed; /* 钉死外层，防止干扰滚动 */
         }
 
         #app-ui { 
-            display: flex; flex-direction: column; height: 100%; 
+            display: flex; flex-direction: column; 
+            position: absolute;
+            inset: 0; /* 强制拉伸到物理边界 */
             padding-top: env(safe-area-inset-top); 
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: env(safe-area-inset-bottom); /* 关键：确保底部内容不被挡住 */
         }
 
         .header { 
@@ -38,7 +44,12 @@
         }
         .btn-new:disabled { background: #333; color: #666; }
 
-        #file-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        #file-list { 
+            flex: 1; 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; 
+            padding-bottom: 20px; /* 给列表底部留一点呼吸空间 */
+        }
         .file-row { padding: 18px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center; }
         .file-row:active { background: #111; }
         .file-name { font-size: 16px; color: #ccc; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
@@ -48,7 +59,12 @@
         .btn-del { color: #ff3b30 !important; }
 
         /* 编辑器层 */
-        #editor-layer { display: none; position: fixed; inset: 0; background: #000; z-index: 50; flex-direction: column; padding-top: env(safe-area-inset-top); }
+        #editor-layer { 
+            display: none; position: fixed; inset: 0; background: #000; z-index: 50; 
+            flex-direction: column; 
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
         .editor-bar { padding: 10px 20px; display: flex; justify-content: space-between; border-bottom: 1px solid #222; }
         .btn-text { background: none; border: none; color: #0f0; font-weight: bold; font-size: 15px; padding: 5px; }
         .btn-text:disabled { color: #333; }
@@ -60,14 +76,22 @@
             font-size: 14px; line-height: 1.5; outline: none; resize: none;
         }
 
-        /* 运行层 */
-        #runner-layer { display: none; position: fixed; inset: 0; background: #fff; z-index: 100; }
+        /* 运行层预览 */
+        #runner-layer { 
+            display: none; position: fixed; 
+            inset: 0; /* 强制填满，包括底部不显示区域 */
+            background: #fff; z-index: 100; 
+        }
         #runner-iframe { width: 100%; height: 100%; border: none; }
+        
         #exit-fab {
-            position: absolute; top: calc(15px + env(safe-area-inset-top)); right: 20px;
+            position: absolute; 
+            top: calc(15px + env(safe-area-inset-top)); 
+            right: 20px;
             width: 36px; height: 36px; background: rgba(0,0,0,0.5); border-radius: 50%;
             color: #fff; display: flex; align-items: center; justify-content: center; 
             z-index: 101; font-size: 18px; backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.2);
         }
     </style>
 </head>
@@ -96,7 +120,7 @@
     </div>
 
 <script>
-    /* --- 核心逻辑 --- */
+    /* --- 数据与初始化 --- */
     const DB_KEY = 'tnaa_vfs_v1';
     let projects = [];
     try {
@@ -112,10 +136,10 @@
     const domRunner = document.getElementById('runner-layer');
     const domIframe = document.getElementById('runner-iframe');
 
-    // 状态检查：离线拦截
+    // 离线状态检测
     function isOffline() {
         if (!navigator.onLine) {
-            alert("OFFLINE MODE: Cannot modify files.");
+            alert("OFFLINE MODE: Changes cannot be saved.");
             return true;
         }
         return false;
@@ -160,6 +184,7 @@
         });
     }
 
+    /* --- 交互逻辑 --- */
     function actionNew() {
         if (isOffline()) return;
         const name = prompt("File Name:", "index.html");
@@ -167,7 +192,7 @@
         const newProj = {
             id: 'id_' + Date.now(),
             name: name,
-            code: '<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <title>New Page</title>\n  <style>body{background:#000; color:#0f0; font-family:monospace; padding:20px;}</style>\n</head>\n<body>\n  <h1>HELLO WORLD</h1>\n</body>\n</html>'
+            code: '<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <title>New Page</title>\n  <style>\n    body { background: #000; color: #0f0; font-family: monospace; padding: 20px; }\n    h1 { border-bottom: 1px solid #333; }\n  </style>\n</head>\n<body>\n  <h1>HELLO WORLD</h1>\n  <p>Sandbox is ready.</p>\n</body>\n</html>'
         };
         projects.unshift(newProj);
         dbSave();
@@ -207,7 +232,9 @@
         if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
 
         domRunner.style.display = 'block';
-        const patch = `<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;}</style>`;
+        
+        // 自动注入移动端适配补丁
+        const patch = `<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;}</style>`;
         let fullCode = p.code;
         fullCode = /<head>/i.test(fullCode) ? fullCode.replace(/<head>/i, '<head>' + patch) : patch + fullCode;
 
@@ -223,7 +250,7 @@
         if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
     }
 
-    // 辅助功能：Tab 键缩进
+    // 编辑器辅助：Tab 键缩进
     domCode.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
             e.preventDefault();
@@ -240,23 +267,24 @@
         return div.innerHTML;
     }
 
-    // PWA: Service Worker 注册
+    // 注册 Service Worker (离线支持)
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
+            navigator.serviceWorker.register('./sw.js').catch(() => {});
         });
     }
 
     window.addEventListener('online', updateOnlineUI);
     window.addEventListener('offline', updateOnlineUI);
     
-    // 初始化
+    // 初始化渲染
     renderList();
     updateOnlineUI();
 
-    // 防止 iOS 橡皮筋
+    // 彻底修复 iOS 橡皮筋干扰
     document.addEventListener('touchmove', (e) => {
-        if (!domList.contains(e.target) && e.target !== domCode) e.preventDefault();
+        const isScrollable = e.target.closest('#file-list') || e.target === domCode;
+        if (!isScrollable) e.preventDefault();
     }, { passive: false });
 </script>
 </body>
