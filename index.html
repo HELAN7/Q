@@ -1,175 +1,101 @@
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<style>
+    /* --- 视觉风格 --- */
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="TNAA Pro">
+    html, body {
+        margin: 0; padding: 0; width: 100%; height: 100%;
+        /* 五颜六色的动态渐变背景 */
+        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+        
+        color: #fff;
+        font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+        overflow: hidden; position: fixed;
+    }
+
+    /* 背景动画 */
+    @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    #app-ui { 
+        display: flex; flex-direction: column; height: 100%; 
+        padding-top: env(safe-area-inset-top); 
+        padding-bottom: env(safe-area-inset-bottom);
+        /* 稍微加深一点背景，确保列表文字清晰 */
+        background: rgba(0, 0, 0, 0.2);
+    }
+
+    .header { 
+        padding: 20px; display: flex; justify-content: space-between; align-items: center; 
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px); /* 磨砂玻璃效果 */
+        -webkit-backdrop-filter: blur(10px);
+    }
     
-    <style>
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
-        html, body {
-            margin: 0; padding: 0;
-            width: 100%;
-            /* 关键修复：使用 dvh 确保在任何时刻高度都精准匹配物理屏幕 */
-            height: 100dvh; 
-            background-color: #000; /* 确保背景色覆盖状态栏区域 */
-            color: #fff;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            overflow: hidden;
-            position: fixed;
-        }
+    .header h1 { 
+        margin: 0; font-size: 18px; letter-spacing: 2px; 
+        color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .btn-new { 
+        background: #fff; color: #333; border: none; padding: 8px 16px; 
+        border-radius: 20px; font-weight: 900; font-size: 12px; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .btn-new:disabled { background: rgba(255,255,255,0.3); color: #888; }
 
-        #app-wrapper {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            width: 100%;
-            /* 关键修复：顶部增加安全区 padding，防止与时间电量重叠 */
-            padding-top: env(safe-area-inset-top);
-            /* 底部增加安全区 padding，防止被 Home 条遮挡 */
-            padding-bottom: env(safe-area-inset-bottom);
-        }
+    #file-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    
+    .file-row { 
+        padding: 18px 20px; 
+        border-bottom: 1px solid rgba(255,255,255,0.05); 
+        display: flex; justify-content: space-between; align-items: center;
+        background: rgba(0, 0, 0, 0.1);
+        margin: 8px 12px;
+        border-radius: 12px;
+        transition: transform 0.2s;
+    }
+    .file-row:active { background: rgba(255,255,255,0.2); transform: scale(0.98); }
+    .file-name { font-size: 16px; color: #fff; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font-weight: 500; }
 
-        .header { 
-            padding: 15px 20px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            border-bottom: 1px solid #222;
-        }
-        
-        .header h1 { margin: 0; font-size: 18px; color: #0f0; letter-spacing: 1px; }
+    .file-actions { display: flex; gap: 8px; }
+    .file-actions button { 
+        background: rgba(255,255,255,0.15); border: none; color: #fff; 
+        padding: 6px 12px; border-radius: 6px; font-size: 11px; 
+        backdrop-filter: blur(5px);
+    }
+    .btn-del { background: rgba(255, 59, 48, 0.2) !important; color: #ffbcbc !important; }
 
-        #file-list { 
-            flex: 1; 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
-        }
-
-        .file-row {
-            padding: 18px 20px;
-            border-bottom: 1px solid #111;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .btn-new {
-            background: #0f0; color: #000; border: none;
-            padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 12px;
-        }
-
-        /* 编辑器层 */
-        #editor-layer {
-            display: none; position: fixed; inset: 0; background: #000; z-index: 50;
-            flex-direction: column;
-            padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-        
-        textarea#code-area {
-            flex: 1; width: 100%; border: none; background: #080808; color: #0f0;
-            padding: 15px; font-family: "SF Mono", monospace; font-size: 14px; outline: none;
-        }
-
-        /* 运行层 */
-        #runner-layer { display: none; position: fixed; inset: 0; background: #fff; z-index: 100; }
-        #runner-iframe { width: 100%; height: 100%; border: none; }
-        
-        #exit-fab {
-            position: absolute; top: calc(10px + env(safe-area-inset-top)); right: 15px;
-            width: 34px; height: 34px; background: rgba(0,0,0,0.5); border-radius: 50%;
-            color: #fff; display: flex; align-items: center; justify-content: center;
-            z-index: 101; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2);
-        }
-    </style>
-</head>
-<body>
-
-    <div id="app-wrapper">
-        <div class="header">
-            <h1>TNAA_SANDBOX</h1>
-            <button class="btn-new" onclick="actionNew()">+ NEW</button>
-        </div>
-        <div id="file-list"></div>
-    </div>
-
-    <div id="editor-layer">
-        <div style="padding: 10px 20px; display: flex; justify-content: space-between; border-bottom: 1px solid #222;">
-            <button onclick="uiCloseEditor()" style="background:none; border:none; color:#ff3b30; font-weight:bold;">CLOSE</button>
-            <button onclick="actionSave()" style="background:none; border:none; color:#0f0; font-weight:bold;">SAVE & RUN</button>
-        </div>
-        <textarea id="code-area" spellcheck="false"></textarea>
-    </div>
-
-    <div id="runner-layer">
-        <div id="exit-fab" onclick="uiCloseRunner()">✕</div>
-        <iframe id="runner-iframe"></iframe>
-    </div>
-
-<script>
-    /* 使用之前你最满意的 JS 逻辑即可，确保在 actionRun 时也使用了 patch 注入样式 */
-    const DB_KEY = 'tnaa_vfs_v1';
-    let projects = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
-    let activeId = null;
-
-    const domList = document.getElementById('file-list');
-    const domEditor = document.getElementById('editor-layer');
-    const domCode = document.getElementById('code-area');
-    const domRunner = document.getElementById('runner-layer');
-    const domIframe = document.getElementById('runner-iframe');
-
-    function renderList() {
-        domList.innerHTML = '';
-        projects.forEach(p => {
-            const row = document.createElement('div');
-            row.className = 'file-row';
-            row.innerHTML = `
-                <div style="flex:1" onclick="actionRun('${p.id}')">📄 ${p.name}</div>
-                <button onclick="uiOpenEditor('${p.id}')" style="background:none; border:1px solid #333; color:#888; padding:4px 8px; border-radius:4px; font-size:11px;">EDIT</button>
-            `;
-            domList.appendChild(row);
-        });
+    /* 编辑器层 - 也加入磨砂质感 */
+    #editor-layer { 
+        display: none; position: fixed; inset: 0; 
+        background: rgba(15, 15, 15, 0.85); 
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        z-index: 50; flex-direction: column; padding-top: env(safe-area-inset-top); 
+    }
+    .editor-bar { padding: 10px 20px; display: flex; justify-content: space-between; border-bottom: 1px solid #333; }
+    .btn-text { background: none; border: none; color: #0f0; font-weight: bold; font-size: 15px; padding: 5px; }
+    .btn-cancel { color: #ff3b30; }
+    
+    textarea#code-area {
+        flex: 1; width: 100%; border: none; 
+        background: transparent; color: #0f0;
+        padding: 15px; font-family: "SF Mono", Menlo, monospace;
+        font-size: 14px; line-height: 1.5; outline: none; resize: none;
     }
 
-    function actionNew() {
-        const name = prompt("Name:", "index.html");
-        if (!name) return;
-        projects.unshift({ id: 'id_'+Date.now(), name, code: '<h1>Hello</h1>' });
-        localStorage.setItem(DB_KEY, JSON.stringify(projects));
-        renderList();
+    /* 运行层 */
+    #runner-layer { display: none; position: fixed; inset: 0; background: #fff; z-index: 100; }
+    #runner-iframe { width: 100%; height: 100%; border: none; }
+    #exit-fab {
+        position: absolute; top: calc(15px + env(safe-area-inset-top)); right: 20px;
+        width: 36px; height: 36px; background: rgba(0,0,0,0.5); border-radius: 50%;
+        color: #fff; display: flex; align-items: center; justify-content: center; 
+        z-index: 101; font-size: 18px; backdrop-filter: blur(5px);
     }
-
-    function uiOpenEditor(id) {
-        activeId = id;
-        domCode.value = projects.find(x => x.id === id).code;
-        domEditor.style.display = 'flex';
-    }
-
-    function actionSave() {
-        const idx = projects.findIndex(x => x.id === activeId);
-        projects[idx].code = domCode.value;
-        localStorage.setItem(DB_KEY, JSON.stringify(projects));
-        actionRun(activeId);
-    }
-
-    function actionRun(id) {
-        const p = projects.find(x => x.id === id);
-        domRunner.style.display = 'block';
-        // 关键：注入 Patch 确保预览页也适配 Safe Area
-        const patch = `<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0; background:#000; color:#fff; padding-top:env(safe-area-inset-top);}</style>`;
-        const blob = new Blob([patch + p.code], { type: 'text/html' });
-        domIframe.src = URL.createObjectURL(blob);
-    }
-
-    function uiCloseEditor() { domEditor.style.display = 'none'; }
-    function uiCloseRunner() { domRunner.style.display = 'none'; domIframe.src = 'about:blank'; }
-
-    renderList();
-</script>
-</body>
-</html>
+</style>
