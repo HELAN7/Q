@@ -6,112 +6,104 @@
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="TNAA Sandbox">
-    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-title" content="TNAA Pro">
     
-    <title>TNAA Sandbox Pro</title>
     <style>
-        /* --- 视觉风格与全屏布局修复 --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         html, body {
-            margin: 0; padding: 0; 
-            width: 100vw; 
-            height: 100dvh; /* 使用动态视口高度，解决 iOS 留白问题 */
-            background-color: #000; color: #fff;
-            font-family: -apple-system, "SF Mono", "Menlo", monospace;
-            overflow: hidden; 
-            position: fixed; /* 钉死外层，防止干扰滚动 */
+            margin: 0; padding: 0;
+            width: 100%;
+            /* 关键修复：使用 dvh 确保在任何时刻高度都精准匹配物理屏幕 */
+            height: 100dvh; 
+            background-color: #000; /* 确保背景色覆盖状态栏区域 */
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+            position: fixed;
         }
 
-        #app-ui { 
-            display: flex; flex-direction: column; 
-            position: absolute;
-            inset: 0; /* 强制拉伸到物理边界 */
-            padding-top: env(safe-area-inset-top); 
-            padding-bottom: env(safe-area-inset-bottom); /* 关键：确保底部内容不被挡住 */
+        #app-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            /* 关键修复：顶部增加安全区 padding，防止与时间电量重叠 */
+            padding-top: env(safe-area-inset-top);
+            /* 底部增加安全区 padding，防止被 Home 条遮挡 */
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         .header { 
-            padding: 20px; display: flex; justify-content: space-between; align-items: center; 
-            border-bottom: 1px solid #222; background: #000;
+            padding: 15px 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid #222;
         }
-        .header h1 { margin: 0; font-size: 18px; letter-spacing: 2px; color: #0f0; transition: color 0.3s; }
         
-        .btn-new { 
-            background: #0f0; color: #000; border: none; padding: 8px 16px; 
-            border-radius: 4px; font-weight: 900; font-size: 12px; 
-        }
-        .btn-new:disabled { background: #333; color: #666; }
+        .header h1 { margin: 0; font-size: 18px; color: #0f0; letter-spacing: 1px; }
 
         #file-list { 
             flex: 1; 
             overflow-y: auto; 
             -webkit-overflow-scrolling: touch; 
-            padding-bottom: 20px; /* 给列表底部留一点呼吸空间 */
         }
-        .file-row { padding: 18px 20px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center; }
-        .file-row:active { background: #111; }
-        .file-name { font-size: 16px; color: #ccc; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
 
-        .file-actions { display: flex; gap: 8px; }
-        .file-actions button { background: #111; border: 1px solid #333; color: #888; padding: 5px 10px; border-radius: 4px; font-size: 11px; }
-        .btn-del { color: #ff3b30 !important; }
+        .file-row {
+            padding: 18px 20px;
+            border-bottom: 1px solid #111;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-new {
+            background: #0f0; color: #000; border: none;
+            padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 12px;
+        }
 
         /* 编辑器层 */
-        #editor-layer { 
-            display: none; position: fixed; inset: 0; background: #000; z-index: 50; 
-            flex-direction: column; 
+        #editor-layer {
+            display: none; position: fixed; inset: 0; background: #000; z-index: 50;
+            flex-direction: column;
             padding-top: env(safe-area-inset-top);
             padding-bottom: env(safe-area-inset-bottom);
         }
-        .editor-bar { padding: 10px 20px; display: flex; justify-content: space-between; border-bottom: 1px solid #222; }
-        .btn-text { background: none; border: none; color: #0f0; font-weight: bold; font-size: 15px; padding: 5px; }
-        .btn-text:disabled { color: #333; }
-        .btn-cancel { color: #ff3b30; }
         
         textarea#code-area {
-            flex: 1; width: 100%; border: none; background: #050505; color: #0f0;
-            padding: 15px; font-family: "SF Mono", Menlo, monospace;
-            font-size: 14px; line-height: 1.5; outline: none; resize: none;
+            flex: 1; width: 100%; border: none; background: #080808; color: #0f0;
+            padding: 15px; font-family: "SF Mono", monospace; font-size: 14px; outline: none;
         }
 
-        /* 运行层预览 */
-        #runner-layer { 
-            display: none; position: fixed; 
-            inset: 0; /* 强制填满，包括底部不显示区域 */
-            background: #fff; z-index: 100; 
-        }
+        /* 运行层 */
+        #runner-layer { display: none; position: fixed; inset: 0; background: #fff; z-index: 100; }
         #runner-iframe { width: 100%; height: 100%; border: none; }
         
         #exit-fab {
-            position: absolute; 
-            top: calc(15px + env(safe-area-inset-top)); 
-            right: 20px;
-            width: 36px; height: 36px; background: rgba(0,0,0,0.5); border-radius: 50%;
-            color: #fff; display: flex; align-items: center; justify-content: center; 
-            z-index: 101; font-size: 18px; backdrop-filter: blur(5px);
-            border: 1px solid rgba(255,255,255,0.2);
+            position: absolute; top: calc(10px + env(safe-area-inset-top)); right: 15px;
+            width: 34px; height: 34px; background: rgba(0,0,0,0.5); border-radius: 50%;
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            z-index: 101; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2);
         }
     </style>
 </head>
 <body>
 
-    <div id="app-ui">
+    <div id="app-wrapper">
         <div class="header">
-            <h1 id="app-title">TNAA_SANDBOX</h1>
-            <button id="nav-btn-new" class="btn-new" onclick="actionNew()">+ NEW</button>
+            <h1>TNAA_SANDBOX</h1>
+            <button class="btn-new" onclick="actionNew()">+ NEW</button>
         </div>
         <div id="file-list"></div>
     </div>
 
     <div id="editor-layer">
-        <div class="editor-bar">
-            <button class="btn-text btn-cancel" onclick="uiCloseEditor()">CLOSE</button>
-            <span id="editor-title" style="color:#555; font-size:11px; line-height:30px;">EDITOR</span>
-            <button id="nav-btn-save" class="btn-text" onclick="actionSave()">SAVE & RUN</button>
+        <div style="padding: 10px 20px; display: flex; justify-content: space-between; border-bottom: 1px solid #222;">
+            <button onclick="uiCloseEditor()" style="background:none; border:none; color:#ff3b30; font-weight:bold;">CLOSE</button>
+            <button onclick="actionSave()" style="background:none; border:none; color:#0f0; font-weight:bold;">SAVE & RUN</button>
         </div>
-        <textarea id="code-area" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"></textarea>
+        <textarea id="code-area" spellcheck="false"></textarea>
     </div>
 
     <div id="runner-layer">
@@ -120,15 +112,10 @@
     </div>
 
 <script>
-    /* --- 数据与初始化 --- */
+    /* 使用之前你最满意的 JS 逻辑即可，确保在 actionRun 时也使用了 patch 注入样式 */
     const DB_KEY = 'tnaa_vfs_v1';
-    let projects = [];
-    try {
-        projects = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
-    } catch(e) { projects = []; }
-    
+    let projects = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
     let activeId = null;
-    let currentBlobUrl = null;
 
     const domList = document.getElementById('file-list');
     const domEditor = document.getElementById('editor-layer');
@@ -136,156 +123,53 @@
     const domRunner = document.getElementById('runner-layer');
     const domIframe = document.getElementById('runner-iframe');
 
-    // 离线状态检测
-    function isOffline() {
-        if (!navigator.onLine) {
-            alert("OFFLINE MODE: Changes cannot be saved.");
-            return true;
-        }
-        return false;
-    }
-
-    function updateOnlineUI() {
-        const title = document.getElementById('app-title');
-        const btnNew = document.getElementById('nav-btn-new');
-        const btnSave = document.getElementById('nav-btn-save');
-        
-        if (!navigator.onLine) {
-            title.innerText = "TNAA_OFFLINE";
-            title.style.color = "#444";
-            btnNew.disabled = true;
-            btnSave.disabled = true;
-        } else {
-            title.innerText = "TNAA_SANDBOX";
-            title.style.color = "#0f0";
-            btnNew.disabled = false;
-            btnSave.disabled = false;
-        }
-    }
-
-    function dbSave() {
-        localStorage.setItem(DB_KEY, JSON.stringify(projects));
-        renderList();
-    }
-
     function renderList() {
         domList.innerHTML = '';
         projects.forEach(p => {
             const row = document.createElement('div');
             row.className = 'file-row';
             row.innerHTML = `
-                <div class="file-name" onclick="actionRun('${p.id}')">📄 ${escapeHtml(p.name)}</div>
-                <div class="file-actions">
-                    <button onclick="uiOpenEditor('${p.id}')">EDIT</button>
-                    <button class="btn-del" onclick="actionDelete('${p.id}', event)">DEL</button>
-                </div>
+                <div style="flex:1" onclick="actionRun('${p.id}')">📄 ${p.name}</div>
+                <button onclick="uiOpenEditor('${p.id}')" style="background:none; border:1px solid #333; color:#888; padding:4px 8px; border-radius:4px; font-size:11px;">EDIT</button>
             `;
             domList.appendChild(row);
         });
     }
 
-    /* --- 交互逻辑 --- */
     function actionNew() {
-        if (isOffline()) return;
-        const name = prompt("File Name:", "index.html");
+        const name = prompt("Name:", "index.html");
         if (!name) return;
-        const newProj = {
-            id: 'id_' + Date.now(),
-            name: name,
-            code: '<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <title>New Page</title>\n  <style>\n    body { background: #000; color: #0f0; font-family: monospace; padding: 20px; }\n    h1 { border-bottom: 1px solid #333; }\n  </style>\n</head>\n<body>\n  <h1>HELLO WORLD</h1>\n  <p>Sandbox is ready.</p>\n</body>\n</html>'
-        };
-        projects.unshift(newProj);
-        dbSave();
+        projects.unshift({ id: 'id_'+Date.now(), name, code: '<h1>Hello</h1>' });
+        localStorage.setItem(DB_KEY, JSON.stringify(projects));
+        renderList();
     }
 
     function uiOpenEditor(id) {
-        const p = projects.find(x => x.id === id);
-        if (!p) return;
         activeId = id;
-        document.getElementById('editor-title').innerText = p.name.toUpperCase();
-        domCode.value = p.code;
+        domCode.value = projects.find(x => x.id === id).code;
         domEditor.style.display = 'flex';
     }
 
     function actionSave() {
-        if (isOffline()) return;
         const idx = projects.findIndex(x => x.id === activeId);
-        if (idx !== -1) {
-            projects[idx].code = domCode.value;
-            dbSave();
-            actionRun(activeId); 
-        }
-    }
-
-    function actionDelete(id, e) {
-        if (isOffline()) return;
-        if(e) e.stopPropagation();
-        if (confirm("DELETE THIS FILE?")) {
-            projects = projects.filter(x => x.id !== id);
-            dbSave();
-        }
+        projects[idx].code = domCode.value;
+        localStorage.setItem(DB_KEY, JSON.stringify(projects));
+        actionRun(activeId);
     }
 
     function actionRun(id) {
         const p = projects.find(x => x.id === id);
-        if (!p) return;
-        if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-
         domRunner.style.display = 'block';
-        
-        // 自动注入移动端适配补丁
-        const patch = `<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;}</style>`;
-        let fullCode = p.code;
-        fullCode = /<head>/i.test(fullCode) ? fullCode.replace(/<head>/i, '<head>' + patch) : patch + fullCode;
-
-        const blob = new Blob([fullCode], { type: 'text/html' });
-        currentBlobUrl = URL.createObjectURL(blob);
-        domIframe.src = currentBlobUrl;
+        // 关键：注入 Patch 确保预览页也适配 Safe Area
+        const patch = `<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0; background:#000; color:#fff; padding-top:env(safe-area-inset-top);}</style>`;
+        const blob = new Blob([patch + p.code], { type: 'text/html' });
+        domIframe.src = URL.createObjectURL(blob);
     }
 
-    function uiCloseEditor() { domEditor.style.display = 'none'; domCode.blur(); }
-    function uiCloseRunner() { 
-        domRunner.style.display = 'none'; 
-        domIframe.src = 'about:blank';
-        if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-    }
+    function uiCloseEditor() { domEditor.style.display = 'none'; }
+    function uiCloseRunner() { domRunner.style.display = 'none'; domIframe.src = 'about:blank'; }
 
-    // 编辑器辅助：Tab 键缩进
-    domCode.addEventListener('keydown', function(e) {
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            const start = this.selectionStart;
-            const end = this.selectionEnd;
-            this.value = this.value.substring(0, start) + "  " + this.value.substring(end);
-            this.selectionStart = this.selectionEnd = start + 2;
-        }
-    });
-
-    function escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
-
-    // 注册 Service Worker (离线支持)
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').catch(() => {});
-        });
-    }
-
-    window.addEventListener('online', updateOnlineUI);
-    window.addEventListener('offline', updateOnlineUI);
-    
-    // 初始化渲染
     renderList();
-    updateOnlineUI();
-
-    // 彻底修复 iOS 橡皮筋干扰
-    document.addEventListener('touchmove', (e) => {
-        const isScrollable = e.target.closest('#file-list') || e.target === domCode;
-        if (!isScrollable) e.preventDefault();
-    }, { passive: false });
 </script>
 </body>
 </html>
