@@ -1,101 +1,228 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="反应测试">
+
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+<title>反应测试</title>
 <style>
-    /* --- 视觉风格 --- */
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    
-    html, body {
-        margin: 0; padding: 0; width: 100%; height: 100%;
-        /* 五颜六色的动态渐变背景 */
-        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-        background-size: 400% 400%;
-        animation: gradientBG 15s ease infinite;
-        
-        color: #fff;
-        font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
-        overflow: hidden; position: fixed;
-    }
+  :root{font-family:system-ui,-apple-system,"Helvetica Neue","Segoe UI",Roboto,"Noto Sans","Microsoft YaHei",sans-serif}
+  html,body{
+    height: 100%;
+    margin: 0;
+    overflow: hidden; /* 防止橡皮筋回弹效果 */
+    background-color: #d32f2f; /* 初始背景色，防止闪白 */
+  }
+  button{all:unset}
+  .screen{
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    -webkit-touch-callout:none;
+    -webkit-user-select:none;
+    user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    padding:20px;
+    box-sizing:border-box;
+  }
+  .text{
+    font-size:6.5vw; 
+    line-height:1.15;
+    color:white;
+    white-space:pre-line;
+  }
+  @media (min-width:420px){ .text{font-size:28px} }
+  @media (min-width:1024px){ .text{font-size:36px} }
 
-    /* 背景动画 */
-    @keyframes gradientBG {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
+  /* Data panels */
+  .data-panel{
+    position:fixed;
+    /* 适配 iPhone 底部安全区域 */
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    width:46%;
+    max-width:320px;
+    pointer-events:none;
+    font-family:inherit;
+    box-sizing:border-box;
+    padding:6px 10px;
+  }
+  .left-panel{ left:6px; text-align:left; }
+  .right-panel{ right:6px; text-align:right; }
 
-    #app-ui { 
-        display: flex; flex-direction: column; height: 100%; 
-        padding-top: env(safe-area-inset-top); 
-        padding-bottom: env(safe-area-inset-bottom);
-        /* 稍微加深一点背景，确保列表文字清晰 */
-        background: rgba(0, 0, 0, 0.2);
-    }
+  .list{
+    display:flex;
+    flex-direction:column-reverse;
+    gap:6px;
+  }
+  .item{
+    font-size:4.5vw;
+    line-height:1;
+    color:rgba(255,255,255,0.95);
+    white-space:nowrap;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+  }
+  @media (min-width:420px){ .item{font-size:18px} }
+  .item.current{ color:#7CFC00; }
+  .item.empty{ color:rgba(255,255,255,0.65); }
 
-    .header { 
-        padding: 20px; display: flex; justify-content: space-between; align-items: center; 
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px); /* 磨砂玻璃效果 */
-        -webkit-backdrop-filter: blur(10px);
-    }
-    
-    .header h1 { 
-        margin: 0; font-size: 18px; letter-spacing: 2px; 
-        color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    }
-    
-    .btn-new { 
-        background: #fff; color: #333; border: none; padding: 8px 16px; 
-        border-radius: 20px; font-weight: 900; font-size: 12px; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-    .btn-new:disabled { background: rgba(255,255,255,0.3); color: #888; }
-
-    #file-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-    
-    .file-row { 
-        padding: 18px 20px; 
-        border-bottom: 1px solid rgba(255,255,255,0.05); 
-        display: flex; justify-content: space-between; align-items: center;
-        background: rgba(0, 0, 0, 0.1);
-        margin: 8px 12px;
-        border-radius: 12px;
-        transition: transform 0.2s;
-    }
-    .file-row:active { background: rgba(255,255,255,0.2); transform: scale(0.98); }
-    .file-name { font-size: 16px; color: #fff; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font-weight: 500; }
-
-    .file-actions { display: flex; gap: 8px; }
-    .file-actions button { 
-        background: rgba(255,255,255,0.15); border: none; color: #fff; 
-        padding: 6px 12px; border-radius: 6px; font-size: 11px; 
-        backdrop-filter: blur(5px);
-    }
-    .btn-del { background: rgba(255, 59, 48, 0.2) !important; color: #ffbcbc !important; }
-
-    /* 编辑器层 - 也加入磨砂质感 */
-    #editor-layer { 
-        display: none; position: fixed; inset: 0; 
-        background: rgba(15, 15, 15, 0.85); 
-        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-        z-index: 50; flex-direction: column; padding-top: env(safe-area-inset-top); 
-    }
-    .editor-bar { padding: 10px 20px; display: flex; justify-content: space-between; border-bottom: 1px solid #333; }
-    .btn-text { background: none; border: none; color: #0f0; font-weight: bold; font-size: 15px; padding: 5px; }
-    .btn-cancel { color: #ff3b30; }
-    
-    textarea#code-area {
-        flex: 1; width: 100%; border: none; 
-        background: transparent; color: #0f0;
-        padding: 15px; font-family: "SF Mono", Menlo, monospace;
-        font-size: 14px; line-height: 1.5; outline: none; resize: none;
-    }
-
-    /* 运行层 */
-    #runner-layer { display: none; position: fixed; inset: 0; background: #fff; z-index: 100; }
-    #runner-iframe { width: 100%; height: 100%; border: none; }
-    #exit-fab {
-        position: absolute; top: calc(15px + env(safe-area-inset-top)); right: 20px;
-        width: 36px; height: 36px; background: rgba(0,0,0,0.5); border-radius: 50%;
-        color: #fff; display: flex; align-items: center; justify-content: center; 
-        z-index: 101; font-size: 18px; backdrop-filter: blur(5px);
-    }
 </style>
+</head>
+<body>
+
+<div id="screen" class="screen" role="button" aria-label="反应测试屏幕">
+  <div id="text" class="text">当屏幕变为绿色时点击屏幕
+点击即开始</div>
+</div>
+
+<div class="data-panel left-panel" aria-hidden="true">
+  <div id="singles" class="list">
+    <div class="item empty" data-index="2">—</div>
+    <div class="item empty" data-index="1">—</div>
+    <div class="item empty current" data-index="0">—</div>
+  </div>
+</div>
+
+<div class="data-panel right-panel" aria-hidden="true">
+  <div id="avgs" class="list">
+    <div class="item empty" data-index="2">—</div>
+    <div class="item empty" data-index="1">—</div>
+    <div class="item empty current" data-index="0">—</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const screen = document.getElementById('screen');
+  const textEl = document.getElementById('text');
+  const singlesListEl = document.getElementById('singles');
+  const avgListEl = document.getElementById('avgs');
+
+  const COLORS = { RED: '#d32f2f', GREEN: '#2e7d32', BLUE: '#1976d2' };
+  let state = 'idle', timeoutId = null, readyTs = 0;
+  const results = [], batchAverages = [];
+  let currentBatch = [];
+
+  function setColor(col){ screen.style.background = col; }
+  function setText(txt){ textEl.textContent = txt; }
+
+  function toIdle(){
+    clearPending();
+    state = 'idle';
+    setColor(COLORS.RED);
+    setText('当屏幕变为绿色时点击屏幕\n点击即开始');
+  }
+
+  function clearPending(){
+    if(timeoutId!==null){ clearTimeout(timeoutId); timeoutId = null; }
+    readyTs = 0;
+  }
+
+  function startWaiting(){
+    state = 'waiting';
+    setColor(COLORS.RED);
+    setText('等待中…\n请准备');
+    const delay = 1200 + Math.floor(Math.random()*3000);
+    timeoutId = setTimeout(() => {
+      timeoutId = null;
+      becomeReady();
+    }, delay);
+  }
+
+  function becomeReady(){
+    state = 'ready';
+    setColor(COLORS.GREEN);
+    readyTs = performance.now();
+    setText('点击！');
+  }
+
+  function showResultMessage(msg){
+    state = 'result';
+    setColor(COLORS.BLUE);
+    setText(msg + '\n\n点击屏幕重新开始');
+  }
+
+  function updateSinglesDisplay() {
+    const items = singlesListEl.querySelectorAll('.item');
+    const lastThree = results.slice(-3);
+    for (let i = 0; i < 3; i++) {
+      const el = items[i];
+      const value = lastThree[lastThree.length - 1 - i];
+      if (value === undefined) {
+        el.textContent = '—';
+        el.classList.add('empty');
+      } else {
+        el.textContent = value + ' ms';
+        el.classList.remove('empty');
+        el.classList.toggle('current', i === 0);
+      }
+    }
+  }
+
+  function updateAveragesDisplay() {
+    const items = avgListEl.querySelectorAll('.item');
+    const lastThreeAvg = batchAverages.slice(-3);
+    for (let i = 0; i < 3; i++) {
+      const el = items[i];
+      const value = lastThreeAvg[lastThreeAvg.length - 1 - i];
+      if (value === undefined) {
+        el.textContent = '—';
+        el.classList.add('empty');
+      } else {
+        el.textContent = value + ' ms';
+        el.classList.remove('empty');
+        el.classList.toggle('current', i === 0);
+      }
+    }
+  }
+
+  function recordResult(ms) {
+    results.push(ms);
+    currentBatch.push(ms);
+    if (currentBatch.length === 5) {
+      const avg = Math.round(currentBatch.reduce((a,b)=>a+b,0) / 5);
+      batchAverages.push(avg);
+      currentBatch = [];
+    }
+    updateSinglesDisplay();
+    updateAveragesDisplay();
+  }
+
+  function onPointerDown(e){
+    e.preventDefault();
+    if(state === 'idle'){ startWaiting(); return; }
+    if(state === 'waiting'){
+      clearPending();
+      showResultMessage('太早了！');
+      return;
+    }
+    if(state === 'ready'){
+      const dt = Math.round(performance.now() - readyTs);
+      showResultMessage('反应时间: ' + dt + ' ms');
+      recordResult(dt);
+      return;
+    }
+    if(state === 'result'){ startWaiting(); return; }
+  }
+
+  screen.addEventListener('pointerdown', onPointerDown);
+  toIdle();
+
+  // 禁止双击缩放和长按菜单
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+  
+  // 解决 iOS 的“橡皮筋”滚动拉伸问题
+  document.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+  }, { passive: false });
+
+})();
+</script>
+</body>
+</html>
