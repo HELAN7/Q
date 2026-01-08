@@ -1,675 +1,167 @@
 <!DOCTYPE html>
-<html lang="en" class="mobile" data-theme="theme-blue">
+<html lang="zh">
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-    <meta name="renderer" content="webkit">
-    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
-    <link rel="icon" href="/static/img/favicon.png">
-    <title>请假申请结果</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TNAA Explorer 原型预览</title>
     <style>
-        body {
-            margin: 0;
-            font-family: Microsoft YaHei, Helvetica Neue, Helvetica, Arial, sans-serif;
-            font-size: 14px;
-            color: #666;
-            line-height: 1.42857143;
-            background-color: #f2f3f9;
-            width: 390px;
-            height: 844px;
-            overflow-x: hidden;
+        :root { --bg: #ffffff; --text: #000000; --border: #eeeeee; --subText: #666666; --row: #ffffff; --accent: #007AFF; }
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #000000; --text: #ffffff; --border: #222222; --subText: #888888; --row: #000000; }
         }
-        .topbar-wrapper {
-            text-align: center;
-            font-weight: 400;
-            position: fixed;
-            top: 0;
-            width: 390px;
-            height: 50px;
-            z-index: 1001;
-            display: flex;
-            background-color: #459fff;
-            color: #fff;
-        }
-        .topbar-wrapper .title {
-            width: 310px;
-            height: 50px;
-            line-height: 50px;
-            font-size: 20px;
-            color: #fff;
-            display: block;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            text-align: center;
-        }
-        .topbar-wrapper .icon {
-            width: 40px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        /* 返回箭头样式 */
-        .back-arrow {
-            width: 23px;
-            height: 23px;
-            position: relative;
-            display: inline-block;
-        }
-        .back-arrow::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 10px;
-            height: 10px;
-            margin-top: -6px;
-            margin-left: -1px;
-            border-top: 1px solid white;
-            border-right: 1px solid white;
-            transform: rotate(-135deg);
-        }
-        /* 扫码图标样式 */
-        .scan-icon {
-            width: 19.14px;
-            height: 19.36px;
-            position: relative;
-            display: inline-block;
-        }
-        .scan-icon .line1 {
-            position: absolute;
-            background: black;
-            height: 1px;
-            width: 15px;
-            left: 2px;
-            top: 2px;
-        }
-        .scan-icon .line2 {
-            position: absolute;
-            background: black;
-            height: 1px;
-            width: 15px;
-            left: 2px;
-            top: 9px;
-        }
-        .scan-icon .line3 {
-            position: absolute;
-            background: black;
-            height: 1px;
-            width: 15px;
-            left: 2px;
-            bottom: 2px;
-        }
-        .scan-icon .vert1 {
-            position: absolute;
-            background: black;
-            height: 3px;
-            width: 1px;
-            left: 2px;
-            top: 2px;
-        }
-        .scan-icon .vert2 {
-            position: absolute;
-            background: black;
-            height: 3px;
-            width: 1px;
-            right: 2px;
-            top: 2px;
-        }
-        .scan-icon .vert3 {
-            position: absolute;
-            background: black;
-            height: 3px;
-            width: 1px;
-            left: 2px;
-            bottom: 2px;
-        }
-        .scan-icon .vert4 {
-            position: absolute;
-            background: black;
-            height: 3px;
-            width: 1px;
-            right: 2px;
-            bottom: 2px;
-        }
-        .hd {
-            width: 390px;
-            height: 91.67px;
-            background-color: #fff;
-        }
-        .page-tabs {
-            width: 360px;
-            height: 39px;
-            display: flex;
-            justify-content: space-around;
-            padding: 2px 15px 0 15px;
-            list-style: none;
-            margin: 0 auto;
-            align-items: center;
-        }
-        .page-tabs li {
-            padding: 0;
-            color: #999;
-            width: 40px;
-            font-size: 18px;
-            letter-spacing: 2px;
-            overflow: hidden;
-            word-break: keep-all;
-            line-height: 34px;
-            text-align: center;
-        }
-        .page-tabs li.active {
-            background: none;
-            color: #333;
-        }
-        .page-tabs li.active:after {
-            display: block;
-            content: "";
-            width: 40px;
-            height: 3px;
-            border-radius: 3px;
-            background-color: #459fff;
-        }
-        .advanced-query-wrapper {
-            width: 390px;
-            height: 52.67px;
-            padding: 0;
-            background-color: #fff;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-        }
-        .search-input-wrapper {
-            width: 370px;
-            height: 52.67px;
-            padding: 10px 10px 10px 10px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            align-items: center;
-            margin: 0 auto;
-        }
-        .search-input-wrapper .el-input-group {
-            width: 290px;
-            height: 26px;
-        }
-        .search-input-wrapper .el-input-group__prepend {
-            display: none;
-        }
-        .search-input-wrapper .el-input-group .el-input__inner {
-            width: 290px;
-            height: 26px;
-            border-radius: 32px;
-            border: none;
-            background-color: #eee;
-            font-size: 12px;
-            line-height: 26px;
-        }
-        .search-input-wrapper .el-input-group .el-input__suffix {
-            display: none;
-        }
-        .btn-group {
-            width: 80px;
-            height: 26px;
-            vertical-align: top;
-            margin-left: 0;
-            margin-top: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .search-btn {
-            display: none;
-        }
-        .magnifier {
-            width: 17px;
-            height: 17px;
-            position: relative;
-            display: inline-block;
-            margin-left: -15px;
-        }
-        .magnifier .circle {
-            width: 12px;
-            height: 12px;
-            border: 1px solid black;
-            border-radius: 50%;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        .magnifier .handle {
-            width: 1px;
-            height: 4px;
-            background-color: black;
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            transform: rotate(-45deg);
-            transform-origin: bottom right;
-        }
-        .btn-reset {
-            width: 57.33px;
-            height: 26px;
-            padding: 0;
-            background: none;
-            border: none;
-            color: #459fff;
-            font-size: 12px;
-            line-height: 26px;
-            text-align: center;
-        }
-        .bd {
-            width: 390px;
-        }
-        .bd-table {
-            width: 390px;
-            height: 2730px; /* 调整为 7 × 390px + 6 × 10px */
-        }
-        .m-table {
-            width: 390px;
-            height: 100%;
-        }
-        .m-table .li {
-            position: relative;
-            background-color: #fff;
-            width: 366px;
-            height: 390px;
-            padding: 10px 20px 8.5px 20px;
-            margin: 0 11px;
-            border-radius: 7px;
-            margin-top: 10px;
-            border: 1px solid #eee;
-            box-sizing: border-box;
-        }
-        .m-table .li .top {
-            display: flex;
-            align-items: center;
-            width: 326px;
-            height: 34.95px;
-            padding: 0;
-            margin: 0 0 5px 0;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            font-size: 14px;
-            line-height: 34.95px;
-            position: relative;
-        }
-        .m-table .li .top::after {
-            content: '';
-            position: absolute;
-            bottom: 3px;
-            left: -20px;
-            width: 366px;
-            height: 1px;
-            background-color: #eee;
-        }
-        .m-table .li .top span:first-child {
-            font-size: 17px;
-            color: #111;
-            flex: 0 0 auto;
-            position: relative;
-            top: -6px;
-        }
-        .m-table .li .top span:nth-child(2) {
-            width: 102.67px;
-            height: 18px;
-            font-size: 15.12px;
-            line-height: 18px;
-            margin-left: 10px;
-            color: #666;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            position: relative;
-            top: -4.3px;
-            left: 2px;
-        }
-        .m-table .li a {
-            width: 326px;
-            height: 302.3px;
-            display: block;
-            color: #666;
-            text-decoration: none;
-        }
-        .m-table .li a:visited {
-            color: #666;
-            text-decoration: none;
-        }
-        .m-table .li p {
-            width: 326px;
-            height: 25.2px;
-            line-height: 25.2px;
-            text-overflow: ellipsis;
-            display: block;
-            overflow: hidden;
-            font-size: 12.64488px;
-            margin: 0;
-        }
-        .m-table .li p .dt {
-            color: #666;
-        }
-        .m-table .li .flow-status {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 18px;
-            color: #ccc;
-        }
-        .m-table .li .flow-status.flow-status-finish {
-            font-size: 19.8px;
-            top: -10.5px;
-            right: -11px;
-            color: #67c23a;
-            font-weight: 700;
-            padding: 4px 8px;
-            background-color: transparent;
-        }
-        .container {
-            width: 390px;
-            min-height: 844px;
-            background-color: #f2f3f9;
-            overflow: hidden;
-            padding-bottom: 50px;
-            padding-top: 50px;
-        }
-        .page-container {
-            padding: 0;
-            background: none;
-            margin-top: 0;
-            margin-bottom: 0;
-        }
-        .page-container>.hd {
-            background-color: #fff;
-            border: none;
-            margin-bottom: 0;
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: var(--bg); color: var(--text); overflow-x: hidden; }
+        
+        /* 列表页样式 */
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--border); }
+        .title { font-size: 22px; font-weight: 900; }
+        .add-btn { background: var(--accent); color: white; padding: 8px 16px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer; }
+        
+        .file-item { display: flex; align-items: center; border-bottom: 1px solid var(--border); transition: background 0.2s; }
+        .file-info { flex: 1; padding: 20px; cursor: pointer; }
+        .action-group { display: flex; padding-right: 10px; }
+        .icon-btn { padding: 12px; cursor: pointer; font-size: 18px; border: none; background: none; }
+
+        /* 编辑模态框 */
+        #editor-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 200; flex-direction: column; }
+        .modal-header { display: flex; justify-content: space-between; padding: 15px; border-bottom: 1px solid var(--border); align-items: center; }
+        textarea { flex: 1; width: 100%; border: none; padding: 15px; font-family: monospace; font-size: 16px; background: var(--bg); color: var(--text); outline: none; box-sizing: border-box; }
+
+        /* 运行界面：沉浸式 */
+        #runner-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; }
+        iframe { width: 100%; height: 100%; border: none; background: white; }
+
+        /* 悬浮球按钮 */
+        #floating-exit {
+            position: absolute; width: 50px; height: 50px; border-radius: 25px;
+            background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
+            color: white; display: flex; align-items: center; justify-content: center;
+            cursor: move; font-weight: bold; z-index: 400; transition: opacity 0.8s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            user-select: none;
         }
     </style>
 </head>
 <body>
-    <div data-v-9167e4c6="" id="app" class="noHeader">
-        <div data-v-3c3ab314="" data-v-9167e4c6="" class="wrapper">
-            <div data-v-3c3ab314="" class="topbar-wrapper">
-                <span class="icon">
-                    <div class="back-arrow"></div>
-                </span>
-                <span class="title">请假申请结果</span>
-                <div data-v-4c8b060a="" class="icon">
-                    <div class="scan-icon">
-                        <div class="line1"></div>
-                        <div class="line2"></div>
-                        <div class="line3"></div>
-                        <div class="vert1"></div>
-                        <div class="vert2"></div>
-                        <div class="vert3"></div>
-                        <div class="vert4"></div>
-                    </div>
+
+    <div id="app">
+        <div class="header">
+            <div>
+                <div class="title">TNAA Explorer</div>
+                <div style="font-size: 12px; color: var(--subText); margin-top: 4px;" id="pos-indicator">退出键位置: 右上 (预览模式)</div>
+            </div>
+            <button class="add-btn" onclick="createNewFile()">+ 新建</button>
+        </div>
+        <div id="file-list">
+            <div class="file-item">
+                <div class="file-info" onclick="runFile('index.html')">📄 index.html</div>
+                <div class="action-group">
+                    <button class="icon-btn" onclick="shareFile()">📤</button>
+                    <button class="icon-btn" onclick="openEditor('index.html')">📝</button>
                 </div>
             </div>
-            <section data-v-3c3ab314="" class="container has-top-bar has-bot-nav">
-                <div data-v-65a6390f="" data-v-3c3ab314="" class="page-container inner">
-                    <div data-v-65a6390f="" class="hd">
-                        <ul data-v-65a6390f="" class="page-tabs">
-                            <li data-v-65a6390f="">申请</li>
-                            <li data-v-65a6390f="" class="active">办结</li>
-                        </ul>
-                        <div data-v-65a6390f="" class="advanced-query-wrapper">
-                            <div class="search-input-wrapper">
-                                <div class="el-input el-input--large el-input-group el-input-group--prepend el-input--suffix">
-                                    <div class="el-input-group__prepend" style="display: none;">
-                                        <span>
-                                            <div class="el-select select-label-select el-select--mini" style="width: 76px;">
-                                                <div class="el-input el-input--mini el-input--suffix">
-                                                    <input type="text" readonly="readonly" autocomplete="off" placeholder="请选择" class="el-input__inner">
-                                                    <span class="el-input__suffix">
-                                                        <span class="el-input__suffix-inner"><i class="el-select__caret el-input__icon el-icon-arrow-up"></i></span>
-                                                    </span>
-                                                </div>
-                                                <div class="el-select-dropdown el-popper advanced-query" style="display: none;">
-                                                    <div class="el-scrollbar">
-                                                        <div class="el-select-dropdown__wrap el-scrollbar__wrap el-scrollbar__wrap--hidden-default">
-                                                            <ul class="el-scrollbar__view el-select-dropdown__list">
-                                                                <li class="el-select-dropdown__item selected"><span>全部</span></li>
-                                                                <li class="el-select-dropdown__item"><span>学号</span></li>
-                                                                <li class="el-select-dropdown__item"><span>姓名</span></li>
-                                                            </ul>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="el-select include-condition-select el-select--mini" style="width: 90px;">
-                                                <div class="el-input el-input--mini el-input--suffix">
-                                                    <input type="text" readonly="readonly" autocomplete="off" placeholder="请选择" class="el-input__inner">
-                                                    <span class="el-input__suffix">
-                                                        <span class="el-input__suffix-inner"><i class="el-select__caret el-input__icon el-icon-arrow-up"></i></span>
-                                                    </span>
-                                                </div>
-                                                <div class="el-select-dropdown el-popper" style="display: none;">
-                                                    <div class="el-scrollbar">
-                                                        <div class="el-select-dropdown__wrap el-scrollbar__wrap el-scrollbar__wrap--hidden-default">
-                                                            <ul class="el-scrollbar__view el-select-dropdown__list">
-                                                                <li class="el-select-dropdown__item selected"><span>包含</span></li>
-                                                                <li class="el-select-dropdown__item"><span>不包含</span></li>
-                                                                <li class="el-select-dropdown__item"><span>等于</span></li>
-                                                                <li class="el-select-dropdown__item"><span>不等于</span></li>
-                                                            </ul>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </span>
-                                    </div>
-                                    <input type="text" autocomplete="off" placeholder="请输入内容" class="el-input__inner">
-                                    <span class="el-input__suffix" style="display: none;">
-                                        <span class="el-input__suffix-inner">
-                                            <i class="el-icon-search"></i>
-                                        </span>
-                                    </span>
-                                </div>
-                                <div class="btn-group">
-                                    <div class="magnifier">
-                                        <div class="circle"></div>
-                                        <div class="handle"></div>
-                                    </div>
-                                    <button type="button" class="btn-reset">
-                                        <span>重置条件</span>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="condition-value-popover" style="display: none;">
-                                <div class="condition-value-popover-bd">
-                                    <div role="radiogroup" class="el-radio-group radio-condition" style="display: none;"></div>
-                                    <label class="el-checkbox check-all" aria-controls="undefined" style="display: none;">
-                                        <span tabindex="0" role="checkbox" aria-checked="mixed" class="el-checkbox__input is-indeterminate">
-                                            <span class="el-checkbox__inner"></span>
-                                            <input type="checkbox" aria-hidden="true" class="el-checkbox__original" value="">
-                                        </span>
-                                        <span class="el-checkbox__label">全选</span>
-                                    </label>
-                                </div>
-                                <div class="ft-btns">
-                                    <button type="button" class="el-button el-button--primary el-button--medium"><span>确定</span></button>
-                                    <button type="button" class="el-button el-button--default el-button--medium"><span>取消</span></button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div data-v-73a490c4="" data-v-65a6390f="" data-type="c" class="bd">
-                        <div data-v-73a490c4="" class="toolbar"></div>
-                        <div data-v-73a490c4="" class="bd-table">
-                            <div data-v-73a490c4="" class="m-table">
-                                <!-- 列表项 1 -->
-                                <div data-v-73a490c4="" class="li">
-                                    <div class="top pr0">
-                                        <span data-v-73a490c4=""> 合兰·巴合提</span>
-                                        <span data-v-73a490c4=""> 230103600234</span>
-                                        <span data-v-65a6390f="" data-v-73a490c4="" class="flow-status flow-status-finish">已通过</span>
-                                    </div>
-                                    <a data-v-73a490c4="">
-                                        <p data-v-73a490c4="" class="xn"><span data-v-73a490c4="" class="dt">学年：</span><span data-v-73a490c4="">2024-2025</span></p>
-                                        <p data-v-73a490c4="" class="xq"><span data-v-73a490c4="" class="dt">学期：</span><span data-v-73a490c4="">第一学期</span></p>
-                                        <p data-v-73a490c4="" class="bjdm"><span data-v-73a490c4="" class="dt">班级：</span><span data-v-73a490c4="">机电高职23-2班</span></p>
-                                        <p data-v-73a490c4="" class="xb"><span data-v-73a490c4="" class="dt">性别：</span><span data-v-73a490c4="">男性</span></p>
-                                        <p data-v-73a490c4="" class="qjlx"><span data-v-73a490c4="" class="dt">请假类型：</span><span data-v-73a490c4="">事假</span></p>
-                                        <p data-v-73a490c4="" class="qjts"><span data-v-73a490c4="" class="dt">请假天数：</span><span data-v-73a490c4="">0.24</span></p>
-                                        <p data-v-73a490c4="" class="qjkssj"><span data-v-73a490c4="" class="dt">请假开始时间：</span><span data-v-73a490c4="">2025-03-19 13:00:00</span></p>
-                                        <p data-v-73a490c4="" class="qjjssj"><span data-v-73a490c4="" class="dt">请假结束时间：</span><span data-v-73a490c4="">2025-03-19 19:00:00</span></p>
-                                        <p data-v-73a490c4="" class="lxqdzt"><span data-v-73a490c4="" class="dt">离校签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="mddqdzt"><span data-v-73a490c4="" class="dt">目的地签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="fxqdzt"><span data-v-73a490c4="" class="dt">返校签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="CREATE_TIME"><span data-v-73a490c4="" class="dt">申请时间：</span><span data-v-73a490c4="">2025-03-19 12:41:25</span></p>
-                                        <p data-v-73a490c4="" class="ENDTIME"><span data-v-73a490c4="" class="dt">办结时间：</span><span data-v-73a490c4="">2025-03-19 12:57:58</span></p>
-                                    </a>
-                                    <div data-v-73a490c4="" class="operate operate-bottom"></div>
-                                </div>
-                                <!-- 列表项 2 -->
-                                <div data-v-73a490c4="" class="li">
-                                    <div class="top pr0">
-                                        <span data-v-73a490c4=""> 合兰·巴合提</span>
-                                        <span data-v-73a490c4=""> 230103600234</span>
-                                        <span data-v-65a6390f="" data-v-73a490c4="" class="flow-status flow-status-finish">已通过</span>
-                                    </div>
-                                    <a data-v-73a490c4="">
-                                        <p data-v-73a490c4="" class="xn"><span data-v-73a490c4="" class="dt">学年：</span><span data-v-73a490c4="">2024-2025</span></p>
-                                        <p data-v-73a490c4="" class="xq"><span data-v-73a490c4="" class="dt">学期：</span><span data-v-73a490c4="">第一学期</span></p>
-                                        <p data-v-73a490c4="" class="bjdm"><span data-v-73a490c4="" class="dt">班级：</span><span data-v-73a490c4="">机电高职23-2班</span></p>
-                                        <p data-v-73a490c4="" class="xb"><span data-v-73a490c4="" class="dt">性别：</span><span data-v-73a490c4="">男性</span></p>
-                                        <p data-v-73a490c4="" class="qjlx"><span data-v-73a490c4="" class="dt">请假类型：</span><span data-v-73a490c4="">事假</span></p>
-                                        <p data-v-73a490c4="" class="qjts"><span data-v-73a490c4="" class="dt">请假天数：</span><span data-v-73a490c4="">0.21</span></p>
-                                        <p data-v-73a490c4="" class="qjkssj"><span data-v-73a490c4="" class="dt">请假开始时间：</span><span data-v-73a490c4="">2025-02-23 15:00:00</span></p>
-                                        <p data-v-73a490c4="" class="qjjssj"><span data-v-73a490c4="" class="dt">请假结束时间：</span><span data-v-73a490c4="">2025-02-23 19:59:59</span></p>
-                                        <p data-v-73a490c4="" class="lxqdzt"><span data-v-73a490c4="" class="dt">离校签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="mddqdzt"><span data-v-73a490c4="" class="dt">目的地签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="fxqdzt"><span data-v-73a490c4="" class="dt">返校签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="CREATE_TIME"><span data-v-73a490c4="" class="dt">申请时间：</span><span data-v-73a490c4="">2025-02-23 14:42:36</span></p>
-                                        <p data-v-73a490c4="" class="ENDTIME"><span data-v-73a490c4="" class="dt">办结时间：</span><span data-v-73a490c4="">2025-02-23 14:58:49</span></p>
-                                    </a>
-                                    <div data-v-73a490c4="" class="operate operate-bottom"></div>
-                                </div>
-                                <!-- 列表项 3 -->
-                                <div data-v-73a490c4="" class="li">
-                                    <div class="top pr0">
-                                        <span data-v-73a490c4=""> 合兰·巴合提</span>
-                                        <span data-v-73a490c4=""> 230103600234</span>
-                                        <span data-v-65a6390f="" data-v-73a490c4="" class="flow-status flow-status-finish">已通过</span>
-                                    </div>
-                                    <a data-v-73a490c4="">
-                                        <p data-v-73a490c4="" class="xn"><span data-v-73a490c4="" class="dt">学年：</span><span data-v-73a490c4="">2024-2025</span></p>
-                                        <p data-v-73a490c4="" class="xq"><span data-v-73a490c4="" class="dt">学期：</span><span data-v-73a490c4="">第一学期</span></p>
-                                        <p data-v-73a490c4="" class="bjdm"><span data-v-73a490c4="" class="dt">班级：</span><span data-v-73a490c4="">机电高职23-2班</span></p>
-                                        <p data-v-73a490c4="" class="xb"><span data-v-73a490c4="" class="dt">性别：</span><span data-v-73a490c4="">男性</span></p>
-                                        <p data-v-73a490c4="" class="qjlx"><span data-v-73a490c4="" class="dt">请假类型：</span><span data-v-73a490c4="">病假</span></p>
-                                        <p data-v-73a490c4="" class="qjts"><span data-v-73a490c4="" class="dt">请假天数：</span><span data-v-73a490c4="">1.00</span></p>
-                                        <p data-v-73a490c4="" class="qjkssj"><span data-v-73a490c4="" class="dt">请假开始时间：</span><span data-v-73a490c4="">2025-02-22 08:00:00</span></p>
-                                        <p data-v-73a490c4="" class="qjjssj"><span data-v-73a490c4="" class="dt">请假结束时间：</span><span data-v-73a490c4="">2025-02-22 17:00:00</span></p>
-                                        <p data-v-73a490c4="" class="lxqdzt"><span data-v-73a490c4="" class="dt">离校签到：</span><span data-v-73a490c4="">已签到</span></p>
-                                        <p data-v-73a490c4="" class="mddqdzt"><span data-v-73a490c4="" class="dt">目的地签到：</span><span data-v-73a490c4="">已签到</span></p>
-                                        <p data-v-73a490c4="" class="fxqdzt"><span data-v-73a490c4="" class="dt">返校签到：</span><span data-v-73a490c4="">已签到</span></p>
-                                        <p data-v-73a490c4="" class="CREATE_TIME"><span data-v-73a490c4="" class="dt">申请时间：</span><span data-v-73a490c4="">2025-02-21 16:30:00</span></p>
-                                        <p data-v-73a490c4="" class="ENDTIME"><span data-v-73a490c4="" class="dt">办结时间：</span><span data-v-73a490c4="">2025-02-21 17:00:00</span></p>
-                                    </a>
-                                    <div data-v-73a490c4="" class="operate operate-bottom"></div>
-                                </div>
-                                <!-- 列表项 4 -->
-                                <div data-v-73a490c4="" class="li">
-                                    <div class="top pr0">
-                                        <span data-v-73a490c4=""> 合兰·巴合提</span>
-                                        <span data-v-73a490c4=""> 230103600234</span>
-                                        <span data-v-65a6390f="" data-v-73a490c4="" class="flow-status flow-status-finish">已通过</span>
-                                    </div>
-                                    <a data-v-73a490c4="">
-                                        <p data-v-73a490c4="" class="xn"><span data-v-73a490c4="" class="dt">学年：</span><span data-v-73a490c4="">2024-2025</span></p>
-                                        <p data-v-73a490c4="" class="xq"><span data-v-73a490c4="" class="dt">学期：</span><span data-v-73a490c4="">第一学期</span></p>
-                                        <p data-v-73a490c4="" class="bjdm"><span data-v-73a490c4="" class="dt">班级：</span><span data-v-73a490c4="">机电高职23-2班</span></p>
-                                        <p data-v-73a490c4="" class="xb"><span data-v-73a490c4="" class="dt">性别：</span><span data-v-73a490c4="">男性</span></p>
-                                        <p data-v-73a490c4="" class="qjlx"><span data-v-73a490c4="" class="dt">请假类型：</span><span data-v-73a490c4="">事假</span></p>
-                                        <p data-v-73a490c4="" class="qjts"><span data-v-73a490c4="" class="dt">请假天数：</span><span data-v-73a490c4="">0.50</span></p>
-                                        <p data-v-73a490c4="" class="qjkssj"><span data-v-73a490c4="" class="dt">请假开始时间：</span><span data-v-73a490c4="">2025-02-20 09:00:00</span></p>
-                                        <p data-v-73a490c4="" class="qjjssj"><span data-v-73a490c4="" class="dt">请假结束时间：</span><span data-v-73a490c4="">2025-02-20 13:00:00</span></p>
-                                        <p data-v-73a490c4="" class="lxqdzt"><span data-v-73a490c4="" class="dt">离校签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="mddqdzt"><span data-v-73a490c4="" class="dt">目的地签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="fxqdzt"><span data-v-73a490c4="" class="dt">返校签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="CREATE_TIME"><span data-v-73a490c4="" class="dt">申请时间：</span><span data-v-73a490c4="">2025-02-20 08:30:00</span></p>
-                                        <p data-v-73a490c4="" class="ENDTIME"><span data-v-73a490c4="" class="dt">办结时间：</span><span data-v-73a490c4="">2025-02-20 09:00:00</span></p>
-                                    </a>
-                                    <div data-v-73a490c4="" class="operate operate-bottom"></div>
-                                </div>
-                                <!-- 列表项 5 -->
-                                <div data-v-73a490c4="" class="li">
-                                    <div class="top pr0">
-                                        <span data-v-73a490c4=""> 合兰·巴合提</span>
-                                        <span data-v-73a490c4=""> 230103600234</span>
-                                        <span data-v-65a6390f="" data-v-73a490c4="" class="flow-status flow-status-finish">已通过</span>
-                                    </div>
-                                    <a data-v-73a490c4="">
-                                        <p data-v-73a490c4="" class="xn"><span data-v-73a490c4="" class="dt">学年：</span><span data-v-73a490c4="">2024-2025</span></p>
-                                        <p data-v-73a490c4="" class="xq"><span data-v-73a490c4="" class="dt">学期：</span><span data-v-73a490c4="">第一学期</span></p>
-                                        <p data-v-73a490c4="" class="bjdm"><span data-v-73a490c4="" class="dt">班级：</span><span data-v-73a490c4="">机电高职23-2班</span></p>
-                                        <p data-v-73a490c4="" class="xb"><span data-v-73a490c4="" class="dt">性别：</span><span data-v-73a490c4="">男性</span></p>
-                                        <p data-v-73a490c4="" class="qjlx"><span data-v-73a490c4="" class="dt">请假类型：</span><span data-v-73a490c4="">病假</span></p>
-                                        <p data-v-73a490c4="" class="qjts"><span data-v-73a490c4="" class="dt">请假天数：</span><span data-v-73a490c4="">2.00</span></p>
-                                        <p data-v-73a490c4="" class="qjkssj"><span data-v-73a490c4="" class="dt">请假开始时间：</span><span data-v-73a490c4="">2025-02-18 08:00:00</span></p>
-                                        <p data-v-73a490c4="" class="qjjssj"><span data-v-73a490c4="" class="dt">请假结束时间：</span><span data-v-73a490c4="">2025-02-19 17:00:00</span></p>
-                                        <p data-v-73a490c4="" class="lxqdzt"><span data-v-73a490c4="" class="dt">离校签到：</span><span data-v-73a490c4="">已签到</span></p>
-                                        <p data-v-73a490c4="" class="mddqdzt"><span data-v-73a490c4="" class="dt">目的地签到：</span><span data-v-73a490c4="">已签到</span></p>
-                                        <p data-v-73a490c4="" class="fxqdzt"><span data-v-73a490c4="" class="dt">返校签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="CREATE_TIME"><span data-v-73a490c4="" class="dt">申请时间：</span><span data-v-73a490c4="">2025-02-17 15:00:00</span></p>
-                                        <p data-v-73a490c4="" class="ENDTIME"><span data-v-73a490c4="" class="dt">办结时间：</span><span data-v-73a490c4="">2025-02-17 16:00:00</span></p>
-                                    </a>
-                                    <div data-v-73a490c4="" class="operate operate-bottom"></div>
-                                </div>
-                                <!-- 列表项 6 -->
-                                <div data-v-73a490c4="" class="li">
-                                    <div class="top pr0">
-                                        <span data-v-73a490c4=""> 合兰·巴合提</span>
-                                        <span data-v-73a490c4=""> 230103600234</span>
-                                        <span data-v-65a6390f="" data-v-73a490c4="" class="flow-status flow-status-finish">已通过</span>
-                                    </div>
-                                    <a data-v-73a490c4="">
-                                        <p data-v-73a490c4="" class="xn"><span data-v-73a490c4="" class="dt">学年：</span><span data-v-73a490c4="">2024-2025</span></p>
-                                        <p data-v-73a490c4="" class="xq"><span data-v-73a490c4="" class="dt">学期：</span><span data-v-73a490c4="">第一学期</span></p>
-                                        <p data-v-73a490c4="" class="bjdm"><span data-v-73a490c4="" class="dt">班级：</span><span data-v-73a490c4="">机电高职23-2班</span></p>
-                                        <p data-v-73a490c4="" class="xb"><span data-v-73a490c4="" class="dt">性别：</span><span data-v-73a490c4="">男性</span></p>
-                                        <p data-v-73a490c4="" class="qjlx"><span data-v-73a490c4="" class="dt">请假类型：</span><span data-v-73a490c4="">事假</span></p>
-                                        <p data-v-73a490c4="" class="qjts"><span data-v-73a490c4="" class="dt">请假天数：</span><span data-v-73a490c4="">0.25</span></p>
-                                        <p data-v-73a490c4="" class="qjkssj"><span data-v-73a490c4="" class="dt">请假开始时间：</span><span data-v-73a490c4="">2025-02-15 14:00:00</span></p>
-                                        <p data-v-73a490c4="" class="qjjssj"><span data-v-73a490c4="" class="dt">请假结束时间：</span><span data-v-73a490c4="">2025-02-15 16:00:00</span></p>
-                                        <p data-v-73a490c4="" class="lxqdzt"><span data-v-73a490c4="" class="dt">离校签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="mddqdzt"><span data-v-73a490c4="" class="dt">目的地签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="fxqdzt"><span data-v-73a490c4="" class="dt">返校签到：</span><span data-v-73a490c4="">未签到</span></p>
-                                        <p data-v-73a490c4="" class="CREATE_TIME"><span data-v-73a490c4="" class="dt">申请时间：</span><span data-v-73a490c4="">2025-02-15 13:30:00</span></p>
-                                        <p data-v-73a490c4="" class="ENDTIME"><span data-v-73a490c4="" class="dt">办结时间：</span><span data-v-73a490c4="">2025-02-15 14:00:00</span></p>
-                                    </a>
-                                    <div data-v-73a490c4="" class="operate operate-bottom"></div>
-                                </div>
-                                <!-- 列表项 7 -->
-                                <div data-v-73a490c4="" class="li">
-                                    <div class="top pr0">
-                                        <span data-v-73a490c4=""> 合兰·巴合提</span>
-                                        <span data-v-73a490c4=""> 230103600234</span>
-                                        <span data-v-65a6390f="" data-v-73a490c4="" class="flow-status flow-status-finish">已通过</span>
-                                    </div>
-                                    <a data-v-73a490c4="">
-                                        <p data-v-73a490c4="" class="xn"><span data-v-73a490c4="" class="dt">学年：</span><span data-v-73a490c4="">2024-2025</span></p>
-                                        <p data-v-73a490c4="" class="xq"><span data-v-73a490c4="" class="dt">学期：</span><span data-v-73a490c4="">第一学期</span></p>
-                                        <p data-v-73a490c4="" class="bjdm"><span data-v-73a490c4="" class="dt">班级：</span><span data-v-73a490c4="">机电高职23-2班</span></p>
-                                        <p data-v-73a490c4="" class="xb"><span data-v-73a490c4="" class="dt">性别：</span><span data-v-73a490c4="">男性</span></p>
-                                        <p data-v-73a490c4="" class="qjlx"><span data-v-73a490c4="" class="dt">请假类型：</span><span data-v-73a490c4="">病假</span></p>
-                                        <p data-v-73a490c4="" class="qjts"><span data-v-73a490c4="" class="dt">请假天数：</span><span data-v-73a490c4="">3.00</span></p>
-                                        <p data-v-73a490c4="" class="qjkssj"><span data-v-73a490c4="" class="dt">请假开始时间：</span><span data-v-73a490c4="">2025-02-10 08:00:00</span></p>
-                                        <p data-v-73a490c4="" class="qjjssj"><span data-v-73a490c4="" class="dt">请假结束时间：</span><span data-v-73a490c4="">2025-02-12 17:00:00</span></p>
-                                        <p data-v-73a490c4="" class="lxqdzt"><span data-v-73a490c4="" class="dt">离校签到：</span><span data-v-73a490c4="">已签到</span></p>
-                                        <p data-v-73a490c4="" class="mddqdzt"><span data-v-73a490c4="" class="dt">目的地签到：</span><span data-v-73a490c4="">已签到</span></p>
-                                        <p data-v-73a490c4="" class="fxqdzt"><span data-v-73a490c4="" class="dt">返校签到：</span><span data-v-73a490c4="">已签到</span></p>
-                                        <p data-v-73a490c4="" class="CREATE_TIME"><span data-v-73a490c4="" class="dt">申请时间：</span><span data-v-73a490c4="">2025-02-09 14:00:00</span></p>
-                                        <p data-v-73a490c4="" class="ENDTIME"><span data-v-73a490c4="" class="dt">办结时间：</span><span data-v-73a490c4="">2025-02-09 15:00:00</span></p>
-                                    </a>
-                                    <div data-v-73a490c4="" class="operate operate-bottom"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
         </div>
     </div>
+
+    <div id="editor-modal">
+        <div class="modal-header">
+            <span style="color: #FF3B30; cursor: pointer;" onclick="closeEditor()">取消</span>
+            <b id="editor-title">代码编辑</b>
+            <span style="color: var(--accent); font-weight: bold; cursor: pointer;" onclick="saveFile()">保存</span>
+        </div>
+        <textarea id="code-input" spellcheck="false"></textarea>
+    </div>
+
+    <div id="runner-screen">
+        <div id="floating-exit" onclick="closeRunner()">✕</div>
+        <iframe id="viewer"></iframe>
+    </div>
+
+    <script>
+        // 模拟文件系统存储
+        let files = JSON.parse(localStorage.getItem('tnaa_files')) || {
+            'index.html': '<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;"><h1>Hello TNAA!</h1></body></html>'
+        };
+        let currentEditingName = '';
+
+        // 渲染列表
+        function renderList() {
+            const list = document.getElementById('file-list');
+            list.innerHTML = '';
+            Object.keys(files).sort().forEach(name => {
+                list.innerHTML += `
+                    <div class="file-item">
+                        <div class="file-info" onclick="runFile('${name}')">📄 ${name}</div>
+                        <div class="action-group">
+                            <button class="icon-btn" onclick="alert('触发系统原生分享')">📤</button>
+                            <button class="icon-btn" onclick="openEditor('${name}')">📝</button>
+                        </div>
+                    </div>`;
+            });
+            localStorage.setItem('tnaa_files', JSON.stringify(files));
+        }
+
+        // 新建逻辑
+        function createNewFile() {
+            const name = prompt("请输入文件名", "new_page");
+            if (!name) return;
+            const fileName = name.endsWith('.html') ? name : name + '.html';
+            files[fileName] = '<html><body style="background:#fff"><h1>新页面</h1></body></html>';
+            renderList();
+        }
+
+        // 编辑逻辑
+        function openEditor(name) {
+            currentEditingName = name;
+            document.getElementById('editor-title').innerText = name;
+            document.getElementById('code-input').value = files[name];
+            document.getElementById('editor-modal').style.display = 'flex';
+        }
+
+        function saveFile() {
+            files[currentEditingName] = document.getElementById('code-input').value;
+            closeEditor();
+            renderList();
+        }
+
+        function closeEditor() {
+            document.getElementById('editor-modal').style.display = 'none';
+        }
+
+        // 运行逻辑（全屏沉浸）
+        function runFile(name) {
+            const runner = document.getElementById('runner-screen');
+            const viewer = document.getElementById('viewer');
+            const exitBtn = document.getElementById('floating-exit');
+            
+            runner.style.display = 'block';
+            exitBtn.style.opacity = '1';
+            
+            // 模拟退出键位置（固定在右上角，带自动淡出）
+            exitBtn.style.top = '20px';
+            exitBtn.style.right = '20px';
+            
+            const doc = viewer.contentDocument || viewer.contentWindow.document;
+            doc.open();
+            doc.write(files[name]);
+            doc.close();
+
+            // 3秒后自动淡出退出键
+            setTimeout(() => { exitBtn.style.opacity = '0.3'; }, 3000);
+        }
+
+        function closeRunner() {
+            document.getElementById('runner-screen').style.display = 'none';
+        }
+
+        // 简单的拖拽模拟
+        const dragBtn = document.getElementById('floating-exit');
+        dragBtn.onmousedown = function(e) {
+            dragBtn.style.opacity = '1';
+            // 此处可添加更复杂的拖拽逻辑，原型演示点击即可
+        };
+
+        renderList();
+    </script>
 </body>
 </html>
