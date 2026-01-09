@@ -4,94 +4,108 @@
 <meta charset="utf-8" />
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="反应测试">
-
-<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover" />
 <title>反应测试</title>
 <style>
-  :root{font-family:system-ui,-apple-system,"Helvetica Neue","Segoe UI",Roboto,"Noto Sans","Microsoft YaHei",sans-serif}
-  html,body{
+  :root {
+    font-family: system-ui, -apple-system, sans-serif;
+    --bg-color: #d32f2f; /* 动态背景变量 */
+  }
+
+  /* 核心修复：彻底锁定 html 和 body，防止露出底层白色 */
+  html, body {
     height: 100%;
+    width: 100%;
     margin: 0;
-    overflow: hidden; /* 防止橡皮筋回弹效果 */
-    background-color: #d32f2f; /* 初始背景色，防止闪白 */
+    padding: 0;
+    overflow: hidden;
+    background-color: var(--bg-color);
+    position: fixed; /* 锁定视口 */
   }
-  button{all:unset}
-  .screen{
-    height:100vh;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    text-align:center;
-    -webkit-touch-callout:none;
-    -webkit-user-select:none;
-    user-select:none;
-    -webkit-tap-highlight-color:transparent;
-    padding:20px;
-    box-sizing:border-box;
-  }
-  .text{
-    font-size:6.5vw; 
-    line-height:1.15;
-    color:white;
-    white-space:pre-line;
-  }
-  @media (min-width:420px){ .text{font-size:28px} }
-  @media (min-width:1024px){ .text{font-size:36px} }
 
-  /* Data panels */
-  .data-panel{
-    position:fixed;
-    /* 适配 iPhone 底部安全区域 */
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    width:46%;
-    max-width:320px;
-    pointer-events:none;
-    font-family:inherit;
-    box-sizing:border-box;
-    padding:6px 10px;
+  /* 欺骗层：稍微比视口大一点点，强制背景填充 */
+  .screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    /* 使用 dvh (Dynamic Viewport Height) 适配 Safari 动态工具栏 */
+    height: 100vh;
+    height: 100dvh; 
+    background-color: var(--bg-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+    z-index: 1;
   }
-  .left-panel{ left:6px; text-align:left; }
-  .right-panel{ right:6px; text-align:right; }
 
-  .list{
-    display:flex;
-    flex-direction:column-reverse;
-    gap:6px;
+  /* 修复底部的缝隙，强制向下拉伸 100 像素确保覆盖 */
+  .screen::after {
+    content: "";
+    position: absolute;
+    bottom: -100px;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background-color: inherit;
   }
-  .item{
-    font-size:4.5vw;
-    line-height:1;
-    color:rgba(255,255,255,0.95);
-    white-space:nowrap;
+
+  .text {
+    font-size: 6.5vw; 
+    line-height: 1.15;
+    color: white;
+    white-space: pre-line;
+    z-index: 2;
+  }
+
+  .data-panel {
+    position: fixed;
+    /* 适配刘海屏底部安全区域 */
+    bottom: calc(15px + env(safe-area-inset-bottom));
+    width: 46%;
+    max-index: 10;
+    pointer-events: none;
+    font-family: inherit;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    z-index: 3;
+  }
+  .left-panel { left: 6px; text-align: left; }
+  .right-panel { right: 6px; text-align: right; }
+
+  .list { display: flex; flex-direction: column-reverse; gap: 6px; }
+  .item {
+    font-size: 4.5vw;
+    line-height: 1;
+    color: rgba(255,255,255,0.95);
     text-shadow: 0 1px 2px rgba(0,0,0,0.55);
   }
-  @media (min-width:420px){ .item{font-size:18px} }
-  .item.current{ color:#7CFC00; }
-  .item.empty{ color:rgba(255,255,255,0.65); }
+  .item.current { color: #7CFC00; }
+  .item.empty { color: rgba(255,255,255,0.4); }
 
+  @media (min-width: 420px) { .text { font-size: 28px; } .item { font-size: 18px; } }
 </style>
 </head>
 <body>
 
-<div id="screen" class="screen" role="button" aria-label="反应测试屏幕">
-  <div id="text" class="text">当屏幕变为绿色时点击屏幕
-点击即开始</div>
+<div id="screen" class="screen">
+  <div id="text" class="text">加载中...</div>
 </div>
 
-<div class="data-panel left-panel" aria-hidden="true">
+<div class="data-panel left-panel">
   <div id="singles" class="list">
-    <div class="item empty" data-index="2">—</div>
-    <div class="item empty" data-index="1">—</div>
-    <div class="item empty current" data-index="0">—</div>
+    <div class="item empty">—</div><div class="item empty">—</div><div class="item empty current">—</div>
   </div>
 </div>
 
-<div class="data-panel right-panel" aria-hidden="true">
+<div class="data-panel right-panel">
   <div id="avgs" class="list">
-    <div class="item empty" data-index="2">—</div>
-    <div class="item empty" data-index="1">—</div>
-    <div class="item empty current" data-index="0">—</div>
+    <div class="item empty">—</div><div class="item empty">—</div><div class="item empty current">—</div>
   </div>
 </div>
 
@@ -107,7 +121,11 @@
   const results = [], batchAverages = [];
   let currentBatch = [];
 
-  function setColor(col){ screen.style.background = col; }
+  // 关键修复：同步修改全局 CSS 变量
+  function setColor(col){
+    document.documentElement.style.setProperty('--bg-color', col);
+  }
+
   function setText(txt){ textEl.textContent = txt; }
 
   function toIdle(){
@@ -194,6 +212,11 @@
 
   function onPointerDown(e){
     e.preventDefault();
+    // 强制触发全屏尝试（针对 Safari 即使不添加到主屏幕）
+    if (document.documentElement.requestFullscreen) {
+       document.documentElement.requestFullscreen();
+    }
+
     if(state === 'idle'){ startWaiting(); return; }
     if(state === 'waiting'){
       clearPending();
@@ -209,18 +232,18 @@
     if(state === 'result'){ startWaiting(); return; }
   }
 
-  screen.addEventListener('pointerdown', onPointerDown);
-  toIdle();
+  // 核心修复：阻止所有可能导致“露出红底”的默认滚动行为
+  document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 
-  // 禁止双击缩放和长按菜单
-  document.addEventListener('touchstart', (e) => {
-    if (e.touches.length > 1) e.preventDefault();
-  }, { passive: false });
+  screen.addEventListener('pointerdown', onPointerDown);
   
-  // 解决 iOS 的“橡皮筋”滚动拉伸问题
-  document.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-  }, { passive: false });
+  // 页面加载后自动尝试隐藏地址栏
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      window.scrollTo(0, 1);
+      toIdle();
+    }, 300);
+  });
 
 })();
 </script>
