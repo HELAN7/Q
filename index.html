@@ -9,50 +9,41 @@
 <style>
   :root {
     font-family: system-ui, -apple-system, sans-serif;
-    --bg-color: #d32f2f; /* 动态背景变量 */
+    /* 定义背景变量，JS 只要改这个变量，全屏所有死角都会同步变色 */
+    --current-bg: #d32f2f; 
   }
 
-  /* 核心修复：彻底锁定 html 和 body，防止露出底层白色 */
+  /* 1. 暴力锁定：强制 html 和 body 覆盖整个物理屏幕，不准产生任何偏移 */
   html, body {
     height: 100%;
     width: 100%;
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background-color: var(--bg-color);
-    position: fixed; /* 锁定视口 */
+    position: fixed; /* 彻底锁死，防止添加到主屏幕后的系统橡皮筋回弹 */
+    background-color: var(--current-bg);
   }
 
-  /* 欺骗层：稍微比视口大一点点，强制背景填充 */
+  /* 2. 暴力填充：让 screen 容器向外溢出 20%，确保无论 Safari 怎么算高度，它都填不满这个容器 */
   .screen {
     position: absolute;
-    top: 0;
+    top: -10%; /* 向上溢出 */
     left: 0;
-    width: 100%;
-    /* 使用 dvh (Dynamic Viewport Height) 适配 Safari 动态工具栏 */
-    height: 100vh;
-    height: 100dvh; 
-    background-color: var(--bg-color);
+    right: 0;
+    bottom: -10%; /* 向下溢出，彻底盖住所谓的“红条”区域 */
+    
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
+    background-color: var(--current-bg);
+    
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    box-sizing: border-box;
+    transition: background-color 0.05s linear; /* 极速响应变色 */
     z-index: 1;
-  }
-
-  /* 修复底部的缝隙，强制向下拉伸 100 像素确保覆盖 */
-  .screen::after {
-    content: "";
-    position: absolute;
-    bottom: -100px;
-    left: 0;
-    right: 0;
-    height: 100px;
-    background-color: inherit;
   }
 
   .text {
@@ -60,41 +51,37 @@
     line-height: 1.15;
     color: white;
     white-space: pre-line;
-    z-index: 2;
+    /* 抵消上面 -10% 的偏移，让文字居中 */
+    margin-top: 0; 
   }
 
+  /* 3. 数据面板：适配 iPhone 底部安全区，防止被 Home 条挡住 */
   .data-panel {
     position: fixed;
-    /* 适配刘海屏底部安全区域 */
-    bottom: calc(15px + env(safe-area-inset-bottom));
+    bottom: calc(20px + env(safe-area-inset-bottom));
     width: 46%;
-    max-index: 10;
     pointer-events: none;
-    font-family: inherit;
-    box-sizing: border-box;
-    padding: 6px 10px;
-    z-index: 3;
+    z-index: 10;
   }
-  .left-panel { left: 6px; text-align: left; }
-  .right-panel { right: 6px; text-align: right; }
+  .left-panel { left: 10px; text-align: left; }
+  .right-panel { right: 10px; text-align: right; }
 
   .list { display: flex; flex-direction: column-reverse; gap: 6px; }
   .item {
-    font-size: 4.5vw;
-    line-height: 1;
+    font-size: 18px;
     color: rgba(255,255,255,0.95);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
   }
-  .item.current { color: #7CFC00; }
+  .item.current { color: #7CFC00; font-weight: bold; }
   .item.empty { color: rgba(255,255,255,0.4); }
 
-  @media (min-width: 420px) { .text { font-size: 28px; } .item { font-size: 18px; } }
+  @media (max-width: 400px) { .item { font-size: 4.5vw; } }
 </style>
 </head>
 <body>
 
 <div id="screen" class="screen">
-  <div id="text" class="text">加载中...</div>
+  <div id="text" class="text">正在初始化...</div>
 </div>
 
 <div class="data-panel left-panel">
@@ -121,9 +108,10 @@
   const results = [], batchAverages = [];
   let currentBatch = [];
 
-  // 关键修复：同步修改全局 CSS 变量
+  // 核心逻辑：同时修改变量和 body 背景，双重保险
   function setColor(col){
-    document.documentElement.style.setProperty('--bg-color', col);
+    document.documentElement.style.setProperty('--current-bg', col);
+    document.body.style.backgroundColor = col; 
   }
 
   function setText(txt){ textEl.textContent = txt; }
@@ -144,7 +132,7 @@
     state = 'waiting';
     setColor(COLORS.RED);
     setText('等待中…\n请准备');
-    const delay = 1200 + Math.floor(Math.random()*3000);
+    const delay = 1000 + Math.floor(Math.random()*3000);
     timeoutId = setTimeout(() => {
       timeoutId = null;
       becomeReady();
@@ -164,40 +152,6 @@
     setText(msg + '\n\n点击屏幕重新开始');
   }
 
-  function updateSinglesDisplay() {
-    const items = singlesListEl.querySelectorAll('.item');
-    const lastThree = results.slice(-3);
-    for (let i = 0; i < 3; i++) {
-      const el = items[i];
-      const value = lastThree[lastThree.length - 1 - i];
-      if (value === undefined) {
-        el.textContent = '—';
-        el.classList.add('empty');
-      } else {
-        el.textContent = value + ' ms';
-        el.classList.remove('empty');
-        el.classList.toggle('current', i === 0);
-      }
-    }
-  }
-
-  function updateAveragesDisplay() {
-    const items = avgListEl.querySelectorAll('.item');
-    const lastThreeAvg = batchAverages.slice(-3);
-    for (let i = 0; i < 3; i++) {
-      const el = items[i];
-      const value = lastThreeAvg[lastThreeAvg.length - 1 - i];
-      if (value === undefined) {
-        el.textContent = '—';
-        el.classList.add('empty');
-      } else {
-        el.textContent = value + ' ms';
-        el.classList.remove('empty');
-        el.classList.toggle('current', i === 0);
-      }
-    }
-  }
-
   function recordResult(ms) {
     results.push(ms);
     currentBatch.push(ms);
@@ -206,45 +160,45 @@
       batchAverages.push(avg);
       currentBatch = [];
     }
-    updateSinglesDisplay();
-    updateAveragesDisplay();
+    updateUI();
   }
 
-  function onPointerDown(e){
-    e.preventDefault();
-    // 强制触发全屏尝试（针对 Safari 即使不添加到主屏幕）
-    if (document.documentElement.requestFullscreen) {
-       document.documentElement.requestFullscreen();
-    }
+  function updateUI() {
+    const sItems = singlesListEl.querySelectorAll('.item');
+    const aItems = avgListEl.querySelectorAll('.item');
+    const lastThreeS = results.slice(-3);
+    const lastThreeA = batchAverages.slice(-3);
 
-    if(state === 'idle'){ startWaiting(); return; }
-    if(state === 'waiting'){
-      clearPending();
-      showResultMessage('太早了！');
-      return;
-    }
-    if(state === 'ready'){
+    [sItems, aItems].forEach((items, idx) => {
+      const data = idx === 0 ? lastThreeS : lastThreeA;
+      for (let i = 0; i < 3; i++) {
+        const val = data[data.length - 1 - i];
+        items[i].textContent = val ? val + ' ms' : '—';
+        items[i].classList.toggle('empty', !val);
+        if (i === 0 && val) items[i].classList.add('current');
+      }
+    });
+  }
+
+  function handleAction(e){
+    if(e) e.preventDefault();
+    if(state === 'idle') { startWaiting(); }
+    else if(state === 'waiting') { clearPending(); showResultMessage('太早了！'); }
+    else if(state === 'ready') {
       const dt = Math.round(performance.now() - readyTs);
       showResultMessage('反应时间: ' + dt + ' ms');
       recordResult(dt);
-      return;
     }
-    if(state === 'result'){ startWaiting(); return; }
+    else if(state === 'result') { startWaiting(); }
   }
 
-  // 核心修复：阻止所有可能导致“露出红底”的默认滚动行为
+  // 使用 pointerdown 确保响应速度最快
+  screen.addEventListener('pointerdown', handleAction);
+  
+  // 彻底禁掉浏览器默认的拖拽回弹
   document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 
-  screen.addEventListener('pointerdown', onPointerDown);
-  
-  // 页面加载后自动尝试隐藏地址栏
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      window.scrollTo(0, 1);
-      toIdle();
-    }, 300);
-  });
-
+  toIdle();
 })();
 </script>
 </body>
