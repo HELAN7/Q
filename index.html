@@ -7,91 +7,76 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover" />
 <title>反应测试</title>
 <style>
-  :root {
-    font-family: system-ui, -apple-system, sans-serif;
-    /* 定义背景变量，JS 只要改这个变量，全屏所有死角都会同步变色 */
-    --current-bg: #d32f2f; 
-  }
+  :root { --bg: #d32f2f; }
 
-  /* 1. 暴力锁定：强制 html 和 body 覆盖整个物理屏幕，不准产生任何偏移 */
   html, body {
-    height: 100%;
-    width: 100%;
     margin: 0;
     padding: 0;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
-    position: fixed; /* 彻底锁死，防止添加到主屏幕后的系统橡皮筋回弹 */
-    background-color: var(--current-bg);
+    background-color: var(--bg);
+    /* 强制锁定物理视口，不给系统留任何间隙 */
+    position: fixed;
   }
 
-  /* 2. 暴力填充：让 screen 容器向外溢出 20%，确保无论 Safari 怎么算高度，它都填不满这个容器 */
-  .screen {
-    position: absolute;
-    top: -10%; /* 向上溢出 */
+  #screen {
+    /* 关键：使用 fixed 绝对定位，完全无视系统布局建议 */
+    position: fixed;
+    top: 0;
     left: 0;
-    right: 0;
-    bottom: -10%; /* 向下溢出，彻底盖住所谓的“红条”区域 */
-    
+    width: 100vw;
+    /* 强制高度超过物理屏幕，确保完全覆盖底部的 Home 条区域 */
+    height: 120vh; 
+    background-color: var(--bg);
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    text-align: center;
-    background-color: var(--current-bg);
-    
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    transition: background-color 0.05s linear; /* 极速响应变色 */
     z-index: 1;
+    /* 取消点击高亮 */
+    -webkit-tap-highlight-color: transparent;
   }
 
   .text {
-    font-size: 6.5vw; 
-    line-height: 1.15;
+    font-size: 6.5vw;
     color: white;
+    text-align: center;
     white-space: pre-line;
-    /* 抵消上面 -10% 的偏移，让文字居中 */
-    margin-top: 0; 
+    user-select: none;
+    /* 修正因为 120vh 导致的视觉重心偏移 */
+    transform: translateY(-10vh); 
   }
 
-  /* 3. 数据面板：适配 iPhone 底部安全区，防止被 Home 条挡住 */
+  /* 数据面板：改用物理像素定位，避开 env(safe-area) 的干扰 */
   .data-panel {
     position: fixed;
-    bottom: calc(20px + env(safe-area-inset-bottom));
-    width: 46%;
-    pointer-events: none;
+    bottom: 30px; /* 稍微调高，确保在全屏下不被横条物理遮挡 */
+    width: 45%;
     z-index: 10;
+    pointer-events: none;
   }
   .left-panel { left: 10px; text-align: left; }
   .right-panel { right: 10px; text-align: right; }
 
-  .list { display: flex; flex-direction: column-reverse; gap: 6px; }
-  .item {
-    font-size: 18px;
-    color: rgba(255,255,255,0.95);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-  }
+  .item { font-size: 18px; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.5); margin-bottom: 5px; }
   .item.current { color: #7CFC00; font-weight: bold; }
-  .item.empty { color: rgba(255,255,255,0.4); }
-
-  @media (max-width: 400px) { .item { font-size: 4.5vw; } }
+  .item.empty { opacity: 0.4; }
 </style>
 </head>
 <body>
 
-<div id="screen" class="screen">
-  <div id="text" class="text">正在初始化...</div>
+<div id="screen">
+  <div id="text" class="text">点击开始</div>
 </div>
 
 <div class="data-panel left-panel">
-  <div id="singles" class="list">
+  <div id="singles">
     <div class="item empty">—</div><div class="item empty">—</div><div class="item empty current">—</div>
   </div>
 </div>
 
 <div class="data-panel right-panel">
-  <div id="avgs" class="list">
+  <div id="avgs">
     <div class="item empty">—</div><div class="item empty">—</div><div class="item empty current">—</div>
   </div>
 </div>
@@ -100,105 +85,79 @@
 (function(){
   const screen = document.getElementById('screen');
   const textEl = document.getElementById('text');
-  const singlesListEl = document.getElementById('singles');
-  const avgListEl = document.getElementById('avgs');
+  const sList = document.getElementById('singles').children;
+  const aList = document.getElementById('avgs').children;
 
   const COLORS = { RED: '#d32f2f', GREEN: '#2e7d32', BLUE: '#1976d2' };
   let state = 'idle', timeoutId = null, readyTs = 0;
   const results = [], batchAverages = [];
   let currentBatch = [];
 
-  // 核心逻辑：同时修改变量和 body 背景，双重保险
   function setColor(col){
-    document.documentElement.style.setProperty('--current-bg', col);
-    document.body.style.backgroundColor = col; 
-  }
-
-  function setText(txt){ textEl.textContent = txt; }
-
-  function toIdle(){
-    clearPending();
-    state = 'idle';
-    setColor(COLORS.RED);
-    setText('当屏幕变为绿色时点击屏幕\n点击即开始');
-  }
-
-  function clearPending(){
-    if(timeoutId!==null){ clearTimeout(timeoutId); timeoutId = null; }
-    readyTs = 0;
+    document.documentElement.style.setProperty('--bg', col);
+    // 强制触发重绘，防止 iOS 渲染延迟
+    screen.style.backgroundColor = col;
   }
 
   function startWaiting(){
     state = 'waiting';
     setColor(COLORS.RED);
-    setText('等待中…\n请准备');
-    const delay = 1000 + Math.floor(Math.random()*3000);
+    textEl.textContent = '等待中…\n请准备';
     timeoutId = setTimeout(() => {
-      timeoutId = null;
-      becomeReady();
-    }, delay);
-  }
-
-  function becomeReady(){
-    state = 'ready';
-    setColor(COLORS.GREEN);
-    readyTs = performance.now();
-    setText('点击！');
-  }
-
-  function showResultMessage(msg){
-    state = 'result';
-    setColor(COLORS.BLUE);
-    setText(msg + '\n\n点击屏幕重新开始');
-  }
-
-  function recordResult(ms) {
-    results.push(ms);
-    currentBatch.push(ms);
-    if (currentBatch.length === 5) {
-      const avg = Math.round(currentBatch.reduce((a,b)=>a+b,0) / 5);
-      batchAverages.push(avg);
-      currentBatch = [];
-    }
-    updateUI();
-  }
-
-  function updateUI() {
-    const sItems = singlesListEl.querySelectorAll('.item');
-    const aItems = avgListEl.querySelectorAll('.item');
-    const lastThreeS = results.slice(-3);
-    const lastThreeA = batchAverages.slice(-3);
-
-    [sItems, aItems].forEach((items, idx) => {
-      const data = idx === 0 ? lastThreeS : lastThreeA;
-      for (let i = 0; i < 3; i++) {
-        const val = data[data.length - 1 - i];
-        items[i].textContent = val ? val + ' ms' : '—';
-        items[i].classList.toggle('empty', !val);
-        if (i === 0 && val) items[i].classList.add('current');
-      }
-    });
+      state = 'ready';
+      setColor(COLORS.GREEN);
+      readyTs = performance.now();
+      textEl.textContent = '点击！';
+    }, 1200 + Math.random() * 3000);
   }
 
   function handleAction(e){
-    if(e) e.preventDefault();
-    if(state === 'idle') { startWaiting(); }
-    else if(state === 'waiting') { clearPending(); showResultMessage('太早了！'); }
+    e.preventDefault();
+    if(state === 'idle' || state === 'result') { startWaiting(); }
+    else if(state === 'waiting') {
+      clearTimeout(timeoutId);
+      state = 'result';
+      setColor(COLORS.BLUE);
+      textEl.textContent = '太早了！\n\n点击重新开始';
+    }
     else if(state === 'ready') {
       const dt = Math.round(performance.now() - readyTs);
-      showResultMessage('反应时间: ' + dt + ' ms');
-      recordResult(dt);
+      state = 'result';
+      setColor(COLORS.BLUE);
+      textEl.textContent = '反应时间: ' + dt + ' ms\n\n点击重新开始';
+      
+      // 更新逻辑
+      results.push(dt);
+      currentBatch.push(dt);
+      if (currentBatch.length === 5) {
+        batchAverages.push(Math.round(currentBatch.reduce((a,b)=>a+b,0)/5));
+        currentBatch = [];
+      }
+      updateUI();
     }
-    else if(state === 'result') { startWaiting(); }
   }
 
-  // 使用 pointerdown 确保响应速度最快
-  screen.addEventListener('pointerdown', handleAction);
-  
-  // 彻底禁掉浏览器默认的拖拽回弹
+  function updateUI() {
+    const lastS = results.slice(-3);
+    const lastA = batchAverages.slice(-3);
+    for(let i=0; i<3; i++) {
+      const sVal = lastS[lastS.length-1-i];
+      sList[i].textContent = sVal ? sVal + ' ms' : '—';
+      sList[i].className = sVal ? (i===0 ? 'item current' : 'item') : 'item empty';
+      
+      const aVal = lastA[lastA.length-1-i];
+      aList[i].textContent = aVal ? aVal + ' ms' : '—';
+      aList[i].className = aVal ? (i===0 ? 'item current' : 'item') : 'item empty';
+    }
+  }
+
+  // 关键：监听 touchstart 以获得最高优先级的全屏点击响应
+  screen.addEventListener('touchstart', handleAction, { passive: false });
+  // 禁止所有滚动行为
   document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 
-  toIdle();
+  setColor(COLORS.RED);
+  textEl.textContent = '当屏幕变为绿色时点击屏幕\n点击即开始';
 })();
 </script>
 </body>
