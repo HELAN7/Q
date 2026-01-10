@@ -1,164 +1,319 @@
-<!doctype html>
-<html lang="zh">
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-<meta charset="utf-8" />
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover" />
-<title>反应测试</title>
-<style>
-  :root { --bg: #d32f2f; }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background-color: var(--bg);
-    /* 强制锁定物理视口，不给系统留任何间隙 */
-    position: fixed;
-  }
-
-  #screen {
-    /* 关键：使用 fixed 绝对定位，完全无视系统布局建议 */
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    /* 强制高度超过物理屏幕，确保完全覆盖底部的 Home 条区域 */
-    height: 120vh; 
-    background-color: var(--bg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1;
-    /* 取消点击高亮 */
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .text {
-    font-size: 6.5vw;
-    color: white;
-    text-align: center;
-    white-space: pre-line;
-    user-select: none;
-    /* 修正因为 120vh 导致的视觉重心偏移 */
-    transform: translateY(-10vh); 
-  }
-
-  /* 数据面板：改用物理像素定位，避开 env(safe-area) 的干扰 */
-  .data-panel {
-    position: fixed;
-    bottom: 30px; /* 稍微调高，确保在全屏下不被横条物理遮挡 */
-    width: 45%;
-    z-index: 10;
-    pointer-events: none;
-  }
-  .left-panel { left: 10px; text-align: left; }
-  .right-panel { right: 10px; text-align: right; }
-
-  .item { font-size: 18px; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.5); margin-bottom: 5px; }
-  .item.current { color: #7CFC00; font-weight: bold; }
-  .item.empty { opacity: 0.4; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>iPhone 3D 粒子交互</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            touch-action: none; /* 禁止默认触摸行为 */
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        /* 隐藏原始视频，只用来做AI分析 */
+        .input_video {
+            display: none;
+        }
+        
+        /* 启动界面 */
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+        }
+        #start-btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            background: #007AFF;
+            border: none;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        #status {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ffcc;
+            font-size: 12px;
+            z-index: 5;
+            pointer-events: none;
+        }
+    </style>
+    
+    <!-- 引入库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <!-- 使用 Three.js CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
 </head>
 <body>
 
-<div id="screen">
-  <div id="text" class="text">点击开始</div>
-</div>
+    <div id="status">等待启动...</div>
 
-<div class="data-panel left-panel">
-  <div id="singles">
-    <div class="item empty">—</div><div class="item empty">—</div><div class="item empty current">—</div>
-  </div>
-</div>
+    <div id="overlay">
+        <h2>3D 手势粒子系统</h2>
+        <p>需要相机权限<br>张开手掌：扩散 / 握拳：收缩</p>
+        <button id="start-btn">点击开始体验</button>
+    </div>
 
-<div class="data-panel right-panel">
-  <div id="avgs">
-    <div class="item empty">—</div><div class="item empty">—</div><div class="item empty current">—</div>
-  </div>
-</div>
+    <div id="canvas-container"></div>
+    <!-- playsinline 是 iOS 必须的 -->
+    <video class="input_video" playsinline muted></video>
 
-<script>
-(function(){
-  const screen = document.getElementById('screen');
-  const textEl = document.getElementById('text');
-  const sList = document.getElementById('singles').children;
-  const aList = document.getElementById('avgs').children;
+    <script type="module">
+        import * as THREE from 'three';
 
-  const COLORS = { RED: '#d32f2f', GREEN: '#2e7d32', BLUE: '#1976d2' };
-  let state = 'idle', timeoutId = null, readyTs = 0;
-  const results = [], batchAverages = [];
-  let currentBatch = [];
+        // --- 变量定义 ---
+        let scene, camera, renderer, particles;
+        let originalPositions; // 记录粒子的原始球体位置
+        const particleCount = 3000; // 适合 iPhone 的粒子数量
+        
+        // 交互状态
+        let handOpenness = 0; // 0 (握拳) 到 1 (张开)
+        let smoothOpenness = 0; // 用于平滑动画
+        
+        const statusDiv = document.getElementById('status');
+        const videoElement = document.querySelector('.input_video');
+        const startBtn = document.getElementById('start-btn');
+        const overlay = document.getElementById('overlay');
 
-  function setColor(col){
-    document.documentElement.style.setProperty('--bg', col);
-    // 强制触发重绘，防止 iOS 渲染延迟
-    screen.style.backgroundColor = col;
-  }
+        // --- 1. Three.js 初始化 ---
+        function initThree() {
+            scene = new THREE.Scene();
+            // 添加一点环境雾，增加深度感
+            scene.fog = new THREE.FogExp2(0x050505, 0.002);
 
-  function startWaiting(){
-    state = 'waiting';
-    setColor(COLORS.RED);
-    textEl.textContent = '等待中…\n请准备';
-    timeoutId = setTimeout(() => {
-      state = 'ready';
-      setColor(COLORS.GREEN);
-      readyTs = performance.now();
-      textEl.textContent = '点击！';
-    }, 1200 + Math.random() * 3000);
-  }
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 200;
 
-  function handleAction(e){
-    e.preventDefault();
-    if(state === 'idle' || state === 'result') { startWaiting(); }
-    else if(state === 'waiting') {
-      clearTimeout(timeoutId);
-      state = 'result';
-      setColor(COLORS.BLUE);
-      textEl.textContent = '太早了！\n\n点击重新开始';
-    }
-    else if(state === 'ready') {
-      const dt = Math.round(performance.now() - readyTs);
-      state = 'result';
-      setColor(COLORS.BLUE);
-      textEl.textContent = '反应时间: ' + dt + ' ms\n\n点击重新开始';
-      
-      // 更新逻辑
-      results.push(dt);
-      currentBatch.push(dt);
-      if (currentBatch.length === 5) {
-        batchAverages.push(Math.round(currentBatch.reduce((a,b)=>a+b,0)/5));
-        currentBatch = [];
-      }
-      updateUI();
-    }
-  }
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 限制像素比，省电
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-  function updateUI() {
-    const lastS = results.slice(-3);
-    const lastA = batchAverages.slice(-3);
-    for(let i=0; i<3; i++) {
-      const sVal = lastS[lastS.length-1-i];
-      sList[i].textContent = sVal ? sVal + ' ms' : '—';
-      sList[i].className = sVal ? (i===0 ? 'item current' : 'item') : 'item empty';
-      
-      const aVal = lastA[lastA.length-1-i];
-      aList[i].textContent = aVal ? aVal + ' ms' : '—';
-      aList[i].className = aVal ? (i===0 ? 'item current' : 'item') : 'item empty';
-    }
-  }
+            createParticles();
+            
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
 
-  // 关键：监听 touchstart 以获得最高优先级的全屏点击响应
-  screen.addEventListener('touchstart', handleAction, { passive: false });
-  // 禁止所有滚动行为
-  document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+        // --- 2. 创建粒子球体 ---
+        function createParticles() {
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            originalPositions = new Float32Array(particleCount * 3);
 
-  setColor(COLORS.RED);
-  textEl.textContent = '当屏幕变为绿色时点击屏幕\n点击即开始';
-})();
-</script>
+            const color1 = new THREE.Color(0x007AFF); // iOS 蓝
+            const color2 = new THREE.Color(0xFF2D55); // iOS 粉红
+
+            for (let i = 0; i < particleCount; i++) {
+                // 在球体表面生成点
+                const phi = Math.acos(-1 + (2 * i) / particleCount);
+                const theta = Math.sqrt(particleCount * Math.PI) * phi;
+                
+                const r = 60; // 基础半径
+
+                const x = r * Math.cos(theta) * Math.sin(phi);
+                const y = r * Math.sin(theta) * Math.sin(phi);
+                const z = r * Math.cos(phi);
+
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+
+                // 保存原始位置，用于“收缩”回来
+                originalPositions[i * 3] = x;
+                originalPositions[i * 3 + 1] = y;
+                originalPositions[i * 3 + 2] = z;
+
+                // 颜色混合
+                const mixedColor = color1.clone().lerp(color2, i / particleCount);
+                colors[i * 3] = mixedColor.r;
+                colors[i * 3 + 1] = mixedColor.g;
+                colors[i * 3 + 2] = mixedColor.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 2, // 粒子大小
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                depthTest: false,
+                transparent: true
+            });
+
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+        }
+
+        // --- 3. 动画循环 ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 平滑插值，让动作不卡顿
+            smoothOpenness += (handOpenness - smoothOpenness) * 0.1;
+
+            const positions = particles.geometry.attributes.position.array;
+            
+            // 粒子动态更新
+            for (let i = 0; i < particleCount; i++) {
+                const ix = i * 3;
+                const iy = i * 3 + 1;
+                const iz = i * 3 + 2;
+
+                const ox = originalPositions[ix];
+                const oy = originalPositions[iy];
+                const oz = originalPositions[iz];
+
+                // 计算扩展倍率
+                // 基础状态是 1.0，最大张开是 4.0 倍扩散
+                // 增加一点随机噪声，让扩散看起来像“爆炸”
+                const randomNoise = 1 + (Math.random() * 0.5 * smoothOpenness);
+                const expansion = 1 + (smoothOpenness * 3.0 * randomNoise);
+
+                positions[ix] = ox * expansion;
+                positions[iy] = oy * expansion;
+                positions[iz] = oz * expansion;
+            }
+            
+            particles.geometry.attributes.position.needsUpdate = true;
+
+            // 整体旋转
+            particles.rotation.y += 0.005;
+            particles.rotation.z += 0.002;
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 4. MediaPipe Hands 配置 ---
+        async function startCamera() {
+            statusDiv.innerText = "正在加载 AI 模型...";
+            
+            const hands = new Hands({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }});
+
+            // 针对移动端优化的配置
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1, // 0最快但准度低，1平衡，iPhone 13Pro跑1没问题
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            hands.onResults(onResults);
+
+            // 启动摄像头
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await hands.send({image: videoElement});
+                },
+                width: 640,  // 限制分辨率，提高性能
+                height: 480
+            });
+
+            try {
+                await camera.start();
+                overlay.style.display = 'none';
+                statusDiv.innerText = "检测中... 请在摄像头前张开/握合手掌";
+            } catch (e) {
+                console.error(e);
+                statusDiv.innerText = "摄像头启动失败，请确保使用HTTPS或允许权限";
+                alert("无法访问摄像头。如果您在iOS上，请确保通过HTTPS访问，或在Safari设置中允许权限。");
+            }
+        }
+
+        // --- 5. 手势逻辑 ---
+        function onResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const lm = results.multiHandLandmarks[0];
+
+                // 简单的张合计算逻辑：
+                // 计算 拇指指尖(4) 与 食指指尖(8) 之间的距离
+                // 再除以 手掌大小(腕部0到中指根部9的距离) 进行归一化，防止手离得远近影响结果
+                
+                const thumbTip = lm[4];
+                const indexTip = lm[8];
+                const wrist = lm[0];
+                const middleFingerBase = lm[9];
+
+                // 计算两指距离
+                const pinchDist = Math.sqrt(
+                    Math.pow(thumbTip.x - indexTip.x, 2) + 
+                    Math.pow(thumbTip.y - indexTip.y, 2)
+                );
+
+                // 计算手掌参照大小
+                const handSize = Math.sqrt(
+                    Math.pow(wrist.x - middleFingerBase.x, 2) + 
+                    Math.pow(wrist.y - middleFingerBase.y, 2)
+                );
+
+                // 归一化比率 (Ratio)
+                let ratio = pinchDist / handSize;
+
+                // 调试用
+                // console.log(ratio);
+
+                // 映射到 0~1
+                // 通常 ratio < 0.5 是握拳/捏合，ratio > 1.2 是张大
+                // 下面参数可能需要根据实际体验微调
+                let openness = (ratio - 0.3) * 1.5; 
+                
+                // 限制在 0 到 1 之间
+                handOpenness = Math.max(0, Math.min(1, openness));
+                
+                statusDiv.innerText = `手势识别中 - 张开度: ${(handOpenness*100).toFixed(0)}%`;
+
+            } else {
+                // 没检测到手，慢慢恢复原状
+                handOpenness = 0;
+                statusDiv.innerText = "未检测到手";
+            }
+        }
+
+        // --- 启动逻辑 ---
+        startBtn.addEventListener('click', () => {
+            startBtn.innerText = "正在启动...";
+            initThree();
+            startCamera();
+        });
+
+    </script>
 </body>
 </html>
