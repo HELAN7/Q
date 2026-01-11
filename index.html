@@ -2,11 +2,9 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>HTML Runner</title>
+<title>HTML 链接列表</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
-/* ===== 全局 ===== */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -16,11 +14,10 @@ body {
 
 #app {
   padding: 12px;
-  background: #000;
   min-height: 100vh;
 }
 
-/* ===== 液态玻璃按钮 ===== */
+/* 按钮 */
 button {
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 14px;
@@ -28,8 +25,6 @@ button {
   background: rgba(255,255,255,0.12);
   color: white;
   font-size: 14px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 button.danger {
@@ -37,17 +32,15 @@ button.danger {
   border: 1px solid rgba(255, 59, 48, 0.6);
 }
 
-/* ===== 文件列表卡片（液态玻璃） ===== */
+/* 列表项（假液态玻璃） */
 .list-item {
   background: rgba(255,255,255,0.08);
   margin-bottom: 10px;
   padding: 12px;
   border-radius: 16px;
   display: flex;
-  gap: 6px;
+  justify-content: space-between;
   align-items: center;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255,255,255,0.12);
   box-shadow:
     0 4px 12px rgba(0,0,0,0.4),
@@ -56,202 +49,69 @@ button.danger {
 
 .list-item span {
   flex: 1;
-  font-size: 15px;
-  color: #fff;
-}
-
-/* ===== 编辑器 ===== */
-textarea {
-  width: 100%;
-  height: 60vh;
-  box-sizing: border-box;
-  background: rgba(255,255,255,0.06);
-  color: #fff;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.15);
-  padding: 12px;
-  font-family: monospace;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-/* ===== 编辑 / 运行界面切换 ===== */
-#editor, #runner {
-  display: none;
-}
-
-/* ===== 运行区 iframe ===== */
-#runner iframe {
-  width: 100%;
-  height: 100vh;
-  border: none;
-  background: black;
-}
-
-/* ===== 退出按钮（放大 + 半透明 + 液态玻璃） ===== */
-#exitBtn {
-  position: fixed;
-  top: 12px;
-  left: 12px;
-  width: 50px;   /* 原36 → 约140% */
-  height: 50px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.18);
-  color: white;
-  text-align: center;
-  line-height: 50px;
-  font-size: 22px;
-  z-index: 999;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(255,255,255,0.25);
-  box-shadow:
-    0 6px 20px rgba(0,0,0,0.5),
-    inset 0 0 1px rgba(255,255,255,0.6);
+  cursor: pointer;
 }
 </style>
 </head>
-
 <body>
 <div id="app">
-
-  <!-- 文件列表 -->
-  <div id="list">
-    <button onclick="newFile()">新建文件</button>
-    <div id="fileList"></div>
-  </div>
-
-  <!-- 编辑器 -->
-  <div id="editor">
-    <h3 id="editorTitle"></h3>
-    <textarea id="codeArea"></textarea><br><br>
-    <button onclick="saveFile()">保存</button>
-    <button onclick="backToList()">返回</button>
-  </div>
-
-</div>
-
-<!-- 运行界面 -->
-<div id="runner">
-  <div id="exitBtn" onclick="exitRun()">×</div>
-  <iframe id="runFrame" sandbox="allow-scripts"></iframe>
+  <button onclick="addEntry()">新建条目</button>
+  <div id="list"></div>
 </div>
 
 <script>
-/* ===== 稳定性优先存储结构 ===== */
-const MAIN_KEY = "html_files";
-const BACKUP_KEY = "html_files_backup";
-let files = [];
-let currentId = null;
+const STORAGE_KEY = "html_link_list";
+let entries = [];
 
-/* 加载文件 */
-function loadFiles() {
-  try {
-    const data = localStorage.getItem(MAIN_KEY);
-    if (data) {
-      files = JSON.parse(data);
-    } else {
-      files = [];
-    }
-  } catch {
-    const backup = localStorage.getItem(BACKUP_KEY);
-    files = backup ? JSON.parse(backup) : [];
-    saveFiles();
-  }
+function loadEntries() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  entries = data ? JSON.parse(data) : [];
 }
 
-/* 双写防损 */
-function saveFiles() {
-  localStorage.setItem(BACKUP_KEY, JSON.stringify(files));
-  localStorage.setItem(MAIN_KEY, JSON.stringify(files));
+function saveEntries() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 
-/* 渲染列表 */
 function renderList() {
-  const list = document.getElementById("fileList");
+  const list = document.getElementById("list");
   list.innerHTML = "";
-  files.forEach(f => {
+  entries.forEach(entry => {
     const div = document.createElement("div");
     div.className = "list-item";
     div.innerHTML = `
-      <span onclick="runFile('${f.id}')">${f.name}</span>
-      <button onclick="editFile('${f.id}')">编辑</button>
-      <button class="danger" onclick="deleteFile('${f.id}')">删除</button>
+      <span onclick="openEntry('${entry.id}')">${entry.name}</span>
+      <button class="danger" onclick="deleteEntry('${entry.id}')">删除</button>
     `;
     list.appendChild(div);
   });
 }
 
-/* 新建文件 */
-function newFile() {
-  const name = prompt("输入文件名（例如 test.html）");
+function addEntry() {
+  const name = prompt("输入显示名称");
   if (!name) return;
-  if (files.some(f => f.name === name)) {
-    alert("文件名已存在");
-    return;
-  }
+  const url = prompt("输入 GitHub 上 HTML 的 URL");
+  if (!url) return;
   const id = Date.now().toString();
-  files.push({
-    id,
-    name,
-    content: "<!DOCTYPE html>\n<html>\n<head>\n<meta charset='UTF-8'>\n</head>\n<body>\n\n</body>\n</html>"
-  });
-  saveFiles();
+  entries.push({id, name, url});
+  saveEntries();
   renderList();
 }
 
-/* 编辑文件 */
-function editFile(id) {
-  currentId = id;
-  const file = files.find(f => f.id === id);
-  document.getElementById("editorTitle").innerText = file.name;
-  document.getElementById("codeArea").value = file.content;
-  document.getElementById("list").style.display = "none";
-  document.getElementById("editor").style.display = "block";
-}
-
-/* 保存文件 */
-function saveFile() {
-  const file = files.find(f => f.id === currentId);
-  file.content = document.getElementById("codeArea").value;
-  saveFiles();
-  backToList();
-}
-
-/* 返回列表 */
-function backToList() {
-  document.getElementById("editor").style.display = "none";
-  document.getElementById("list").style.display = "block";
+function deleteEntry(id) {
+  if (!confirm("确定删除吗？")) return;
+  entries = entries.filter(e => e.id !== id);
+  saveEntries();
   renderList();
 }
 
-/* 删除文件 */
-function deleteFile(id) {
-  if (!confirm("确定永久删除？")) return;
-  files = files.filter(f => f.id !== id);
-  saveFiles();
-  renderList();
+function openEntry(id) {
+  const entry = entries.find(e => e.id === id);
+  if (entry) {
+    window.open(entry.url, "_blank"); // 新标签页打开
+  }
 }
 
-/* 运行文件 */
-function runFile(id) {
-  const file = files.find(f => f.id === id);
-  const iframe = document.getElementById("runFrame");
-  iframe.srcdoc = file.content;
-  document.getElementById("app").style.display = "none";
-  document.getElementById("runner").style.display = "block";
-}
-
-/* 退出运行 */
-function exitRun() {
-  const iframe = document.getElementById("runFrame");
-  iframe.srcdoc = "";
-  document.getElementById("runner").style.display = "none";
-  document.getElementById("app").style.display = "block";
-}
-
-/* 初始化 */
-loadFiles();
+loadEntries();
 renderList();
 </script>
 </body>
