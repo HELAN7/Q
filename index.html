@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <title>HTML 链接列表</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   background: #000;
   color: #fff;
+  touch-action: manipulation; /* 防止 iOS 双击缩放 */
 }
 
 #app {
@@ -25,6 +26,7 @@ button {
   background: rgba(255,255,255,0.12);
   color: white;
   font-size: 14px;
+  cursor: pointer;
 }
 
 button.danger {
@@ -51,11 +53,34 @@ button.danger {
   flex: 1;
   cursor: pointer;
 }
+
+/* 新建条目输入框 */
+#newEntryForm {
+  display: none;
+  margin: 12px 0;
+}
+
+#newEntryForm input {
+  padding: 8px;
+  margin-right: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
+  color: white;
+}
 </style>
 </head>
 <body>
 <div id="app">
-  <button onclick="addEntry()">新建条目</button>
+  <button id="showFormBtn">新建条目</button>
+
+  <div id="newEntryForm">
+    <input type="text" id="entryName" placeholder="显示名称">
+    <input type="text" id="entryURL" placeholder="GitHub HTML URL">
+    <button onclick="addEntryFromForm()">添加</button>
+    <button onclick="hideForm()">取消</button>
+  </div>
+
   <div id="list"></div>
 </div>
 
@@ -86,15 +111,30 @@ function renderList() {
   });
 }
 
-function addEntry() {
-  const name = prompt("输入显示名称");
-  if (!name) return;
-  const url = prompt("输入 GitHub 上 HTML 的 URL");
-  if (!url) return;
+function showForm() {
+  document.getElementById("newEntryForm").style.display = "block";
+  document.getElementById("showFormBtn").style.display = "none";
+}
+
+function hideForm() {
+  document.getElementById("newEntryForm").style.display = "none";
+  document.getElementById("showFormBtn").style.display = "inline-block";
+  document.getElementById("entryName").value = "";
+  document.getElementById("entryURL").value = "";
+}
+
+function addEntryFromForm() {
+  const name = document.getElementById("entryName").value.trim();
+  const url = document.getElementById("entryURL").value.trim();
+  if (!name || !url) {
+    alert("名称和 URL 都不能为空");
+    return;
+  }
   const id = Date.now().toString();
   entries.push({id, name, url});
   saveEntries();
   renderList();
+  hideForm();
 }
 
 function deleteEntry(id) {
@@ -107,9 +147,22 @@ function deleteEntry(id) {
 function openEntry(id) {
   const entry = entries.find(e => e.id === id);
   if (entry) {
-    window.open(entry.url, "_blank"); // 新标签页打开
+    window.location.href = entry.url; // 同页面打开，兼容全屏浏览器
   }
 }
+
+/* 阻止双击放大 */
+document.addEventListener('touchstart', function preventZoom(e) {
+  if (e.touches.length > 1) {
+    e.preventDefault();
+  }
+}, {passive: false});
+
+document.addEventListener('gesturestart', function (e) {
+  e.preventDefault();
+});
+
+document.getElementById("showFormBtn").addEventListener("click", showForm);
 
 loadEntries();
 renderList();
