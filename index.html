@@ -1,473 +1,258 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HTML Code Runner</title>
-    <style>
-        :root {
-            --ios-bg: #F2F2F7;
-            --ios-card: #FFFFFF;
-            --ios-blue: #007AFF;
-            --ios-red: #FF3B30;
-            --ios-text: #000000;
-            --ios-text-secondary: #8E8E93;
-            --ios-separator: #C6C6C8;
-            --safe-top: env(safe-area-inset-top);
-            --safe-bottom: env(safe-area-inset-bottom);
-        }
+<meta charset="UTF-8">
+<title>HTML Runner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --ios-bg: #000000;
-                --ios-card: #1C1C1E;
-                --ios-text: #FFFFFF;
-                --ios-separator: #38383A;
-            }
-        }
-
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
-        body {
-            margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--ios-bg);
-            color: var(--ios-text);
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Views Management */
-        .view {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--ios-bg);
-            transition: transform 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
-            display: flex;
-            flex-direction: column;
-            z-index: 10;
-        }
-
-        .view.hidden {
-            transform: translateX(100%);
-            pointer-events: none;
-        }
-
-        /* Navigation Bar */
-        .navbar {
-            padding: calc(var(--safe-top) + 12px) 16px 12px;
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 0.5px solid var(--ios-separator);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 20;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .navbar { background: rgba(28, 28, 30, 0.85); }
-        }
-
-        .nav-title { font-size: 17px; font-weight: 600; }
-        .nav-btn {
-            font-size: 17px; color: var(--ios-blue);
-            background: none; border: none; padding: 0; cursor: pointer;
-        }
-        .nav-btn.danger { color: var(--ios-red); }
-
-        /* File List */
-        #file-list-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px 16px calc(var(--safe-bottom) + 20px);
-        }
-
-        .list-header {
-            font-size: 34px; font-weight: 700;
-            margin: 10px 0 20px 4px;
-        }
-
-        .file-group {
-            background: var(--ios-card);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .file-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 16px;
-            border-bottom: 0.5px solid var(--ios-separator);
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .file-item:last-child { border-bottom: none; }
-        .file-item:active { background: rgba(0,0,0,0.05); }
-
-        .file-info { flex: 1; }
-        .file-name { font-size: 17px; font-weight: 500; margin-bottom: 2px; }
-        .file-meta { font-size: 13px; color: var(--ios-text-secondary); }
-
-        .file-actions { display: flex; gap: 12px; margin-left: 10px; }
-        .action-btn {
-            background: #E5E5EA; width: 32px; height: 32px;
-            border-radius: 50%; border: none;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px;
-        }
-        .action-btn.edit { color: var(--ios-blue); }
-        .action-btn.del { color: var(--ios-red); background: rgba(255, 59, 48, 0.15); }
-
-        /* Editor */
-        #editor-area {
-            flex: 1;
-            width: 100%;
-            border: none;
-            padding: 16px;
-            font-family: "Menlo", "Courier New", monospace;
-            font-size: 14px;
-            background: var(--ios-bg);
-            color: var(--ios-text);
-            resize: none;
-            outline: none;
-        }
-
-        /* Runner */
-        #runner-view { background: #fff; z-index: 30; }
-        #runner-frame { width: 100%; height: 100%; border: none; display: block; }
-        
-        .exit-runner-btn {
-            position: fixed;
-            top: calc(var(--safe-top) + 16px);
-            left: 16px;
-            width: 36px; height: 36px;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(10px);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 18px;
-            cursor: pointer;
-            z-index: 40;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
-
-        /* Simple Modal */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.4);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 50;
-            opacity: 0; pointer-events: none; transition: opacity 0.2s;
-        }
-        .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        
-        .modal-box {
-            background: var(--ios-card); /* iOS light/dark mode aware */
-            width: 270px;
-            border-radius: 14px;
-            text-align: center;
-            backdrop-filter: blur(20px);
-        }
-        
-        .modal-title { padding: 16px 16px 4px; font-weight: 600; font-size: 17px; }
-        .modal-msg { padding: 0 16px 16px; font-size: 13px; color: var(--ios-text-secondary); }
-        .modal-input {
-            width: 90%; margin-bottom: 16px; padding: 6px;
-            border: 0.5px solid var(--ios-separator); border-radius: 4px;
-            background: var(--ios-bg); color: var(--ios-text);
-        }
-        .modal-actions {
-            border-top: 0.5px solid var(--ios-separator);
-            display: flex;
-        }
-        .modal-btn {
-            flex: 1; padding: 12px; border: none; background: none;
-            font-size: 17px; color: var(--ios-blue); cursor: pointer;
-            border-right: 0.5px solid var(--ios-separator);
-        }
-        .modal-btn:last-child { border-right: none; }
-        .modal-btn.bold { font-weight: 600; }
-        
-        /* Empty State */
-        .empty-state {
-            text-align: center; margin-top: 50px; color: var(--ios-text-secondary);
-        }
-
-    </style>
-</head>
-<body>
-
-    <!-- 1. File List View -->
-    <div id="home-view" class="view">
-        <div id="file-list-container">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div class="list-header">我的代码</div>
-                <button class="nav-btn" style="font-size: 32px; margin-right: 10px;" onclick="promptNewFile()">+</button>
-            </div>
-            <div id="file-list" class="file-group">
-                <!-- Javascript will populate this -->
-            </div>
-            <div id="empty-msg" class="empty-state" style="display:none;">
-                <p>暂无文件</p>
-                <p>点击右上角 + 新建</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- 2. Editor View -->
-    <div id="editor-view" class="view hidden">
-        <div class="navbar">
-            <button class="nav-btn" onclick="closeEditor()">取消</button>
-            <span class="nav-title" id="editor-title">编辑文件</span>
-            <button class="nav-btn" style="font-weight: 600;" onclick="saveFile()">保存</button>
-        </div>
-        <textarea id="editor-area" spellcheck="false" placeholder="在此输入 HTML 代码..."></textarea>
-    </div>
-
-    <!-- 3. Runner View -->
-    <div id="runner-view" class="view hidden">
-        <div class="exit-runner-btn" onclick="closeRunner()">✕</div>
-        <iframe id="runner-frame" sandbox="allow-scripts allow-forms allow-modals allow-popups-to-escape-sandbox"></iframe>
-    </div>
-
-    <!-- Custom Modal -->
-    <div id="modal-overlay" class="modal-overlay">
-        <div class="modal-box">
-            <div class="modal-title" id="modal-title">标题</div>
-            <div class="modal-msg" id="modal-msg">内容</div>
-            <input type="text" id="modal-input" class="modal-input" style="display:none;">
-            <div class="modal-actions">
-                <button class="modal-btn" onclick="closeModal()">取消</button>
-                <button class="modal-btn bold" id="modal-confirm-btn">确定</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // --- State Management ---
-        const STORAGE_KEY = 'ios_html_runner_files_v1';
-        let files = [];
-        let currentEditingId = null;
-
-        // --- Initialization ---
-        window.addEventListener('DOMContentLoaded', () => {
-            loadFiles();
-            renderList();
-        });
-
-        // --- Data Logic ---
-        function loadFiles() {
-            try {
-                const data = localStorage.getItem(STORAGE_KEY);
-                files = data ? JSON.parse(data) : [];
-            } catch (e) {
-                console.error("Storage Error:", e);
-                alert("无法读取本地数据");
-            }
-        }
-
-        function saveFilesToStorage() {
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
-            } catch (e) {
-                alert("存储空间不足或保存失败");
-            }
-        }
-
-        function createFile(name) {
-            if (!name || name.trim() === "") return false;
-            
-            // Check Duplicate
-            if (files.some(f => f.name === name)) {
-                showModal("文件名重复", "请使用其他名称", false, null);
-                return false;
-            }
-
-            const newFile = {
-                id: Date.now(),
-                name: name,
-                content: `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width">
 <style>
-  body { font-family: sans-serif; padding: 20px; }
-  h1 { color: #007AFF; }
+/* ===== 全局 ===== */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #000;
+  color: #fff;
+}
+
+#app {
+  padding: 12px;
+  background: #000;
+  min-height: 100vh;
+}
+
+/* ===== 液态玻璃按钮 ===== */
+button {
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.12);
+  color: white;
+  font-size: 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+button.danger {
+  background: rgba(255, 59, 48, 0.4);
+  border: 1px solid rgba(255, 59, 48, 0.6);
+}
+
+/* ===== 文件列表卡片（液态玻璃） ===== */
+.list-item {
+  background: rgba(255,255,255,0.08);
+  margin-bottom: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.4),
+    inset 0 0 0.5px rgba(255,255,255,0.4);
+}
+
+.list-item span {
+  flex: 1;
+  font-size: 15px;
+  color: #fff;
+}
+
+/* ===== 编辑器 ===== */
+textarea {
+  width: 100%;
+  height: 60vh;
+  box-sizing: border-box;
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 12px;
+  font-family: monospace;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ===== 编辑 / 运行界面切换 ===== */
+#editor, #runner {
+  display: none;
+}
+
+/* ===== 运行区 iframe ===== */
+#runner iframe {
+  width: 100%;
+  height: 100vh;
+  border: none;
+  background: black;
+}
+
+/* ===== 退出按钮（放大 + 半透明 + 液态玻璃） ===== */
+#exitBtn {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: 50px;   /* 原36 → 约140% */
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  color: white;
+  text-align: center;
+  line-height: 50px;
+  font-size: 22px;
+  z-index: 999;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,0.25);
+  box-shadow:
+    0 6px 20px rgba(0,0,0,0.5),
+    inset 0 0 1px rgba(255,255,255,0.6);
+}
 </style>
 </head>
+
 <body>
-  <h1>你好!</h1>
-  <p>这是文件: ${name}</p>
-</body>
-</html>`,
-                lastModified: new Date().toLocaleString()
-            };
+<div id="app">
 
-            files.unshift(newFile); // Add to top
-            saveFilesToStorage();
-            renderList();
-            return true;
-        }
+  <!-- 文件列表 -->
+  <div id="list">
+    <button onclick="newFile()">新建文件</button>
+    <div id="fileList"></div>
+  </div>
 
-        function updateFileContent(id, content) {
-            const file = files.find(f => f.id === id);
-            if (file) {
-                file.content = content;
-                file.lastModified = new Date().toLocaleString();
-                saveFilesToStorage();
-            }
-        }
+  <!-- 编辑器 -->
+  <div id="editor">
+    <h3 id="editorTitle"></h3>
+    <textarea id="codeArea"></textarea><br><br>
+    <button onclick="saveFile()">保存</button>
+    <button onclick="backToList()">返回</button>
+  </div>
 
-        function deleteFile(id) {
-            files = files.filter(f => f.id !== id);
-            saveFilesToStorage();
-            renderList();
-        }
+</div>
 
-        // --- UI Rendering ---
-        function renderList() {
-            const listEl = document.getElementById('file-list');
-            const emptyMsg = document.getElementById('empty-msg');
-            listEl.innerHTML = '';
+<!-- 运行界面 -->
+<div id="runner">
+  <div id="exitBtn" onclick="exitRun()">×</div>
+  <iframe id="runFrame" sandbox="allow-scripts"></iframe>
+</div>
 
-            if (files.length === 0) {
-                emptyMsg.style.display = 'block';
-                return;
-            } else {
-                emptyMsg.style.display = 'none';
-            }
+<script>
+/* ===== 稳定性优先存储结构 ===== */
+const MAIN_KEY = "html_files";
+const BACKUP_KEY = "html_files_backup";
+let files = [];
+let currentId = null;
 
-            files.forEach(file => {
-                const item = document.createElement('div');
-                item.className = 'file-item';
-                // Click main body to run
-                item.innerHTML = `
-                    <div class="file-info" onclick="runFile(${file.id})">
-                        <div class="file-name">${file.name}</div>
-                        <div class="file-meta">${file.lastModified}</div>
-                    </div>
-                    <div class="file-actions">
-                        <button class="action-btn edit" onclick="openEditor(${file.id})">✎</button>
-                        <button class="action-btn del" onclick="confirmDelete(${file.id})">🗑</button>
-                    </div>
-                `;
-                listEl.appendChild(item);
-            });
-        }
+/* 加载文件 */
+function loadFiles() {
+  try {
+    const data = localStorage.getItem(MAIN_KEY);
+    if (data) {
+      files = JSON.parse(data);
+    } else {
+      files = [];
+    }
+  } catch {
+    const backup = localStorage.getItem(BACKUP_KEY);
+    files = backup ? JSON.parse(backup) : [];
+    saveFiles();
+  }
+}
 
-        // --- View Transitions ---
-        function switchView(viewId) {
-            document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
-            const target = document.getElementById(viewId);
-            target.classList.remove('hidden');
-        }
+/* 双写防损 */
+function saveFiles() {
+  localStorage.setItem(BACKUP_KEY, JSON.stringify(files));
+  localStorage.setItem(MAIN_KEY, JSON.stringify(files));
+}
 
-        // --- Editor Logic ---
-        function openEditor(id) {
-            const file = files.find(f => f.id === id);
-            if (!file) return;
-            
-            currentEditingId = id;
-            document.getElementById('editor-title').innerText = file.name;
-            document.getElementById('editor-area').value = file.content;
-            switchView('editor-view');
-        }
+/* 渲染列表 */
+function renderList() {
+  const list = document.getElementById("fileList");
+  list.innerHTML = "";
+  files.forEach(f => {
+    const div = document.createElement("div");
+    div.className = "list-item";
+    div.innerHTML = `
+      <span onclick="runFile('${f.id}')">${f.name}</span>
+      <button onclick="editFile('${f.id}')">编辑</button>
+      <button class="danger" onclick="deleteFile('${f.id}')">删除</button>
+    `;
+    list.appendChild(div);
+  });
+}
 
-        function saveFile() {
-            const content = document.getElementById('editor-area').value;
-            updateFileContent(currentEditingId, content);
-            switchView('home-view');
-            renderList();
-        }
+/* 新建文件 */
+function newFile() {
+  const name = prompt("输入文件名（例如 test.html）");
+  if (!name) return;
+  if (files.some(f => f.name === name)) {
+    alert("文件名已存在");
+    return;
+  }
+  const id = Date.now().toString();
+  files.push({
+    id,
+    name,
+    content: "<!DOCTYPE html>\n<html>\n<head>\n<meta charset='UTF-8'>\n</head>\n<body>\n\n</body>\n</html>"
+  });
+  saveFiles();
+  renderList();
+}
 
-        function closeEditor() {
-            if (confirm("未保存的修改将丢失，确定退出？")) {
-                switchView('home-view');
-            }
-        }
+/* 编辑文件 */
+function editFile(id) {
+  currentId = id;
+  const file = files.find(f => f.id === id);
+  document.getElementById("editorTitle").innerText = file.name;
+  document.getElementById("codeArea").value = file.content;
+  document.getElementById("list").style.display = "none";
+  document.getElementById("editor").style.display = "block";
+}
 
-        // --- Runner Logic ---
-        function runFile(id) {
-            const file = files.find(f => f.id === id);
-            if (!file) return;
+/* 保存文件 */
+function saveFile() {
+  const file = files.find(f => f.id === currentId);
+  file.content = document.getElementById("codeArea").value;
+  saveFiles();
+  backToList();
+}
 
-            const iframe = document.getElementById('runner-frame');
-            // Reset iframe
-            iframe.srcdoc = '';
-            
-            switchView('runner-view');
+/* 返回列表 */
+function backToList() {
+  document.getElementById("editor").style.display = "none";
+  document.getElementById("list").style.display = "block";
+  renderList();
+}
 
-            // Small delay to ensure transition starts cleanly
-            setTimeout(() => {
-                iframe.srcdoc = file.content;
-            }, 50);
-        }
+/* 删除文件 */
+function deleteFile(id) {
+  if (!confirm("确定永久删除？")) return;
+  files = files.filter(f => f.id !== id);
+  saveFiles();
+  renderList();
+}
 
-        function closeRunner() {
-            const iframe = document.getElementById('runner-frame');
-            iframe.srcdoc = ''; // Clear memory/execution
-            switchView('home-view');
-        }
+/* 运行文件 */
+function runFile(id) {
+  const file = files.find(f => f.id === id);
+  const iframe = document.getElementById("runFrame");
+  iframe.srcdoc = file.content;
+  document.getElementById("app").style.display = "none";
+  document.getElementById("runner").style.display = "block";
+}
 
-        // --- Modal Logic (iOS Style) ---
-        const modal = document.getElementById('modal-overlay');
-        const mTitle = document.getElementById('modal-title');
-        const mMsg = document.getElementById('modal-msg');
-        const mInput = document.getElementById('modal-input');
-        const mBtn = document.getElementById('modal-confirm-btn');
-        let modalCallback = null;
+/* 退出运行 */
+function exitRun() {
+  const iframe = document.getElementById("runFrame");
+  iframe.srcdoc = "";
+  document.getElementById("runner").style.display = "none";
+  document.getElementById("app").style.display = "block";
+}
 
-        function showModal(title, msg, hasInput, callback) {
-            mTitle.innerText = title;
-            mMsg.innerText = msg;
-            mInput.style.display = hasInput ? 'block' : 'none';
-            mInput.value = '';
-            modalCallback = callback;
-            
-            modal.classList.add('active');
-            if (hasInput) setTimeout(() => mInput.focus(), 100);
-        }
-
-        function closeModal() {
-            modal.classList.remove('active');
-            modalCallback = null;
-        }
-
-        mBtn.onclick = () => {
-            if (modalCallback) {
-                const result = mInput.style.display === 'block' ? mInput.value : true;
-                modalCallback(result);
-            }
-            closeModal();
-        };
-
-        // --- Actions ---
-        function promptNewFile() {
-            showModal("新建 HTML 文件", "请输入文件名 (.html)", true, (name) => {
-                if(name) {
-                    if(!name.toLowerCase().endsWith('.html')) name += '.html';
-                    createFile(name);
-                }
-            });
-        }
-
-        function confirmDelete(id) {
-            showModal("删除文件", "此操作无法撤销，确定删除吗？", false, () => {
-                deleteFile(id);
-            });
-        }
-
-    </script>
+/* 初始化 */
+loadFiles();
+renderList();
+</script>
 </body>
 </html>
