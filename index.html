@@ -2,318 +2,113 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>iPhone 3D 粒子交互</title>
+    <title>星际隧道动画</title>
     <style>
         body {
             margin: 0;
-            overflow: hidden;
-            background-color: #050505;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            touch-action: none; /* 禁止默认触摸行为 */
+            padding: 0;
+            overflow: hidden; /* 隐藏滚动条 */
+            background-color: black;
         }
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
-        /* 隐藏原始视频，只用来做AI分析 */
-        .input_video {
-            display: none;
-        }
-        
-        /* 启动界面 */
-        #overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            text-align: center;
-        }
-        #start-btn {
-            padding: 15px 40px;
-            font-size: 18px;
-            background: #007AFF;
-            border: none;
-            border-radius: 25px;
-            color: white;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-        #status {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #00ffcc;
-            font-size: 12px;
-            z-index: 5;
-            pointer-events: none;
+        canvas {
+            display: block;
         }
     </style>
-    
-    <!-- 引入库 -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-    <!-- 使用 Three.js CDN -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-            }
-        }
-    </script>
 </head>
 <body>
 
-    <div id="status">等待启动...</div>
+<canvas id="starfield"></canvas>
 
-    <div id="overlay">
-        <h2>3D 手势粒子系统</h2>
-        <p>需要相机权限<br>张开手掌：扩散 / 握拳：收缩</p>
-        <button id="start-btn">点击开始体验</button>
-    </div>
+<script>
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
 
-    <div id="canvas-container"></div>
-    <!-- playsinline 是 iOS 必须的 -->
-    <video class="input_video" playsinline muted></video>
+    let width, height, centerX, centerY;
+    const stars = [];
+    const starCount = 800; // 星星的数量
+    const speed = 5;      // 飞行速度
 
-    <script type="module">
-        import * as THREE from 'three';
+    // 初始化画布尺寸
+    function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        centerX = width / 2;
+        centerY = height / 2;
+    }
 
-        // --- 变量定义 ---
-        let scene, camera, renderer, particles;
-        let originalPositions; // 记录粒子的原始球体位置
-        const particleCount = 3000; // 适合 iPhone 的粒子数量
-        
-        // 交互状态
-        let handOpenness = 0; // 0 (握拳) 到 1 (张开)
-        let smoothOpenness = 0; // 用于平滑动画
-        
-        const statusDiv = document.getElementById('status');
-        const videoElement = document.querySelector('.input_video');
-        const startBtn = document.getElementById('start-btn');
-        const overlay = document.getElementById('overlay');
-
-        // --- 1. Three.js 初始化 ---
-        function initThree() {
-            scene = new THREE.Scene();
-            // 添加一点环境雾，增加深度感
-            scene.fog = new THREE.FogExp2(0x050505, 0.002);
-
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 200;
-
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 限制像素比，省电
-            document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-            createParticles();
-            
-            window.addEventListener('resize', onWindowResize);
-            animate();
+    // 创建星星对象
+    class Star {
+        constructor() {
+            this.init();
         }
 
-        // --- 2. 创建粒子球体 ---
-        function createParticles() {
-            const geometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(particleCount * 3);
-            const colors = new Float32Array(particleCount * 3);
-            originalPositions = new Float32Array(particleCount * 3);
-
-            const color1 = new THREE.Color(0x007AFF); // iOS 蓝
-            const color2 = new THREE.Color(0xFF2D55); // iOS 粉红
-
-            for (let i = 0; i < particleCount; i++) {
-                // 在球体表面生成点
-                const phi = Math.acos(-1 + (2 * i) / particleCount);
-                const theta = Math.sqrt(particleCount * Math.PI) * phi;
-                
-                const r = 60; // 基础半径
-
-                const x = r * Math.cos(theta) * Math.sin(phi);
-                const y = r * Math.sin(theta) * Math.sin(phi);
-                const z = r * Math.cos(phi);
-
-                positions[i * 3] = x;
-                positions[i * 3 + 1] = y;
-                positions[i * 3 + 2] = z;
-
-                // 保存原始位置，用于“收缩”回来
-                originalPositions[i * 3] = x;
-                originalPositions[i * 3 + 1] = y;
-                originalPositions[i * 3 + 2] = z;
-
-                // 颜色混合
-                const mixedColor = color1.clone().lerp(color2, i / particleCount);
-                colors[i * 3] = mixedColor.r;
-                colors[i * 3 + 1] = mixedColor.g;
-                colors[i * 3 + 2] = mixedColor.b;
-            }
-
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-            const material = new THREE.PointsMaterial({
-                size: 2, // 粒子大小
-                vertexColors: true,
-                blending: THREE.AdditiveBlending,
-                depthTest: false,
-                transparent: true
-            });
-
-            particles = new THREE.Points(geometry, material);
-            scene.add(particles);
+        init() {
+            // 随机生成 X, Y, Z 坐标
+            // Z 轴代表深度，越小代表离屏幕越近
+            this.x = (Math.random() - 0.5) * 2000;
+            this.y = (Math.random() - 0.5) * 2000;
+            this.z = Math.random() * 2000;
+            this.pz = this.z; // 记录上一帧的 Z 位置，用于画线
         }
 
-        // --- 3. 动画循环 ---
-        function animate() {
-            requestAnimationFrame(animate);
+        update() {
+            this.pz = this.z;
+            this.z -= speed; // Z 轴减小，星星向观众飞来
 
-            // 平滑插值，让动作不卡顿
-            smoothOpenness += (handOpenness - smoothOpenness) * 0.1;
-
-            const positions = particles.geometry.attributes.position.array;
-            
-            // 粒子动态更新
-            for (let i = 0; i < particleCount; i++) {
-                const ix = i * 3;
-                const iy = i * 3 + 1;
-                const iz = i * 3 + 2;
-
-                const ox = originalPositions[ix];
-                const oy = originalPositions[iy];
-                const oz = originalPositions[iz];
-
-                // 计算扩展倍率
-                // 基础状态是 1.0，最大张开是 4.0 倍扩散
-                // 增加一点随机噪声，让扩散看起来像“爆炸”
-                const randomNoise = 1 + (Math.random() * 0.5 * smoothOpenness);
-                const expansion = 1 + (smoothOpenness * 3.0 * randomNoise);
-
-                positions[ix] = ox * expansion;
-                positions[iy] = oy * expansion;
-                positions[iz] = oz * expansion;
-            }
-            
-            particles.geometry.attributes.position.needsUpdate = true;
-
-            // 整体旋转
-            particles.rotation.y += 0.005;
-            particles.rotation.z += 0.002;
-
-            renderer.render(scene, camera);
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // --- 4. MediaPipe Hands 配置 ---
-        async function startCamera() {
-            statusDiv.innerText = "正在加载 AI 模型...";
-            
-            const hands = new Hands({locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-            }});
-
-            // 针对移动端优化的配置
-            hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 1, // 0最快但准度低，1平衡，iPhone 13Pro跑1没问题
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
-
-            hands.onResults(onResults);
-
-            // 启动摄像头
-            const camera = new Camera(videoElement, {
-                onFrame: async () => {
-                    await hands.send({image: videoElement});
-                },
-                width: 640,  // 限制分辨率，提高性能
-                height: 480
-            });
-
-            try {
-                await camera.start();
-                overlay.style.display = 'none';
-                statusDiv.innerText = "检测中... 请在摄像头前张开/握合手掌";
-            } catch (e) {
-                console.error(e);
-                statusDiv.innerText = "摄像头启动失败，请确保使用HTTPS或允许权限";
-                alert("无法访问摄像头。如果您在iOS上，请确保通过HTTPS访问，或在Safari设置中允许权限。");
+            // 如果星星飞出了屏幕，重新初始化到远处
+            if (this.z < 1) {
+                this.init();
+                this.pz = this.z;
             }
         }
 
-        // --- 5. 手势逻辑 ---
-        function onResults(results) {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const lm = results.multiHandLandmarks[0];
+        draw() {
+            // 将 3D 坐标投影到 2D 屏幕
+            // 公式: 2D坐标 = 3D中心 + (3D坐标 / 深度)
+            let sx = (this.x / this.z) * 500 + centerX;
+            let sy = (this.y / this.z) * 500 + centerY;
 
-                // 简单的张合计算逻辑：
-                // 计算 拇指指尖(4) 与 食指指尖(8) 之间的距离
-                // 再除以 手掌大小(腕部0到中指根部9的距离) 进行归一化，防止手离得远近影响结果
-                
-                const thumbTip = lm[4];
-                const indexTip = lm[8];
-                const wrist = lm[0];
-                const middleFingerBase = lm[9];
+            let px = (this.x / this.pz) * 500 + centerX;
+            let py = (this.y / this.pz) * 500 + centerY;
 
-                // 计算两指距离
-                const pinchDist = Math.sqrt(
-                    Math.pow(thumbTip.x - indexTip.x, 2) + 
-                    Math.pow(thumbTip.y - indexTip.y, 2)
-                );
+            // 设置星星的亮度（越近越亮）
+            const opacity = 1 - this.z / 2000;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+            ctx.lineWidth = 2;
 
-                // 计算手掌参照大小
-                const handSize = Math.sqrt(
-                    Math.pow(wrist.x - middleFingerBase.x, 2) + 
-                    Math.pow(wrist.y - middleFingerBase.y, 2)
-                );
-
-                // 归一化比率 (Ratio)
-                let ratio = pinchDist / handSize;
-
-                // 调试用
-                // console.log(ratio);
-
-                // 映射到 0~1
-                // 通常 ratio < 0.5 是握拳/捏合，ratio > 1.2 是张大
-                // 下面参数可能需要根据实际体验微调
-                let openness = (ratio - 0.3) * 1.5; 
-                
-                // 限制在 0 到 1 之间
-                handOpenness = Math.max(0, Math.min(1, openness));
-                
-                statusDiv.innerText = `手势识别中 - 张开度: ${(handOpenness*100).toFixed(0)}%`;
-
-            } else {
-                // 没检测到手，慢慢恢复原状
-                handOpenness = 0;
-                statusDiv.innerText = "未检测到手";
-            }
+            // 画出运动轨迹（短线段，形成拉伸感）
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(sx, sy);
+            ctx.stroke();
         }
+    }
 
-        // --- 启动逻辑 ---
-        startBtn.addEventListener('click', () => {
-            startBtn.innerText = "正在启动...";
-            initThree();
-            startCamera();
+    // 创建星星数组
+    for (let i = 0; i < starCount; i++) {
+        stars.push(new Star());
+    }
+
+    // 动画循环
+    function animate() {
+        // 每帧涂一层半透明黑，可以产生轻微的拖影效果
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, width, height);
+
+        stars.forEach(star => {
+            star.update();
+            star.draw();
         });
 
-    </script>
+        requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    animate();
+</script>
+
 </body>
 </html>
