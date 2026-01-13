@@ -2,328 +2,113 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>系统进化等级监控</title>
+    <title>星际隧道动画</title>
     <style>
-        /* 全局重置 */
-        * {
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
+            overflow: hidden; /* 隐藏滚动条 */
+            background-color: black;
         }
-
-        body {
-            background-color: #000000;
-            color: #00FF00; /* 黑客帝国绿 */
-            font-family: 'Courier New', Courier, monospace; /* 等宽字体 */
-            overflow: hidden; /* 防止滚动条 */
-            height: 100vh;
-            width: 100vw;
-            position: relative;
-        }
-
-        /* Matrix 背景画布 */
-        #matrix-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 0;
-            opacity: 0.8;
-        }
-
-        /* 内容容器 */
-        .container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            text-shadow: 0 0 10px rgba(0, 255, 0, 0.7); /* 荧光效果 */
-            background: rgba(0, 0, 0, 0.3); /* 轻微遮罩以提高文字可读性 */
-        }
-
-        /* 视觉层级定义 */
-        
-        /* 1. 实时时间 (顶部小字) */
-        .realtime-clock {
-            font-size: 1rem;
-            opacity: 0.8;
-            margin-bottom: 2rem;
-            letter-spacing: 2px;
-        }
-
-        /* 2. 天数 (最大字号) */
-        .day-counter {
-            font-size: 5rem;
-            font-weight: bold;
-            margin-bottom: 1rem;
-            line-height: 1;
-        }
-        .day-label {
-            font-size: 1.5rem;
-            vertical-align: middle;
-        }
-
-        /* 3. 当前等级名 (中字号) */
-        .level-name {
-            font-size: 3rem;
-            font-weight: bold;
-            margin-bottom: 2rem;
-            border: 2px solid #00FF00;
-            padding: 10px 30px;
-            background: rgba(0, 20, 0, 0.8);
-            box-shadow: 0 0 15px #00FF00;
-        }
-
-        /* 4. 元数据与倒计时 (小字号) */
-        .meta-info {
-            font-size: 1.1rem;
-            opacity: 0.9;
-            line-height: 1.6;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 15px;
-            border-radius: 5px;
-        }
-
-        .highlight {
-            color: #ccffcc;
-            font-weight: bold;
-        }
-
-        /* 尚未开始的状态样式 */
-        .status-waiting {
-            color: #aaaaaa;
-            text-shadow: none;
+        canvas {
+            display: block;
         }
     </style>
 </head>
 <body>
 
-    <!-- 背景画布 -->
-    <canvas id="matrix-canvas"></canvas>
+<canvas id="starfield"></canvas>
 
-    <!-- 主内容区 -->
-    <div class="container">
-        <div class="realtime-clock" id="clock">加载中...</div>
+<script>
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
 
-        <div id="main-display">
-            <!-- 天数显示 -->
-            <div class="day-counter">
-                <span id="current-day">0</span><span class="day-label"> 天</span>
-            </div>
+    let width, height, centerX, centerY;
+    const stars = [];
+    const starCount = 800; // 星星的数量
+    const speed = 5;      // 飞行速度
 
-            <!-- 等级显示 -->
-            <div class="level-name" id="level-title">SYSTEM OFFLINE</div>
+    // 初始化画布尺寸
+    function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        centerX = width / 2;
+        centerY = height / 2;
+    }
 
-            <!-- 底部信息 -->
-            <div class="meta-info">
-                <div id="progress-info">等级进度: -- / 33</div>
-                <div id="next-level-countdown" style="margin-top: 10px;">距离下一级: 计算中...</div>
-            </div>
-        </div>
-    </div>
+    // 创建星星对象
+    class Star {
+        constructor() {
+            this.init();
+        }
 
-    <script>
-        // ==========================================
-        // 1. 数据配置 (严禁修改核心数据)
-        // ==========================================
-        
-        // 起始时间: 2026年1月11日 23:59:59
-        const START_TIME = new Date('2026-01-11T23:59:59').getTime();
-        
-        // 完整等级体系 (33级)
-        const LEVELS = [
-            {day:1, name:"列兵"}, {day:2, name:"上等兵"}, {day:4, name:"下士"}, 
-            {day:7, name:"中士"}, {day:11, name:"上士"}, {day:16, name:"一级军士长"}, 
-            {day:22, name:"少尉"}, {day:29, name:"中尉"}, {day:37, name:"上尉"}, 
-            {day:46, name:"少校"}, {day:56, name:"中校"}, {day:67, name:"上校"}, 
-            {day:79, name:"大校"}, {day:92, name:"少将"}, {day:106, name:"中将"}, 
-            {day:121, name:"上将"}, {day:137, name:"元帅"}, {day:154, name:"准武者"}, 
-            {day:172, name:"学徒级"}, {day:191, name:"战士级"}, {day:211, name:"战将级"}, 
-            {day:232, name:"战神级"}, {day:254, name:"地球最强战神"}, {day:277, name:"行星级"}, 
-            {day:301, name:"恒星级"}, {day:326, name:"宇宙级"}, {day:352, name:"域主级"}, 
-            {day:379, name:"界主级"}, {day:407, name:"不朽神灵级"}, {day:436, name:"宇宙尊者级"}, 
-            {day:466, name:"宇宙之主级"}, {day:497, name:"真神级"}, {day:529, name:"永恒真神级"}
-        ];
+        init() {
+            // 随机生成 X, Y, Z 坐标
+            // Z 轴代表深度，越小代表离屏幕越近
+            this.x = (Math.random() - 0.5) * 2000;
+            this.y = (Math.random() - 0.5) * 2000;
+            this.z = Math.random() * 2000;
+            this.pz = this.z; // 记录上一帧的 Z 位置，用于画线
+        }
 
-        // ==========================================
-        // 2. 核心逻辑系统
-        // ==========================================
+        update() {
+            this.pz = this.z;
+            this.z -= speed; // Z 轴减小，星星向观众飞来
 
-        const domClock = document.getElementById('clock');
-        const domDay = document.getElementById('current-day');
-        const domLevel = document.getElementById('level-title');
-        const domProgress = document.getElementById('progress-info');
-        const domCountdown = document.getElementById('next-level-countdown');
-
-        function updateSystem() {
-            const now = new Date();
-            const nowTs = now.getTime();
-
-            // 1. 更新实时时钟
-            domClock.innerText = `当前系统时间: ${now.toLocaleString('zh-CN', { hour12: false })}`;
-
-            // 2. 计算天数逻辑
-            let daysElapsed = 0;
-            
-            if (nowTs > START_TIME) {
-                // 只要过了起始点即为“第一天”。
-                // 逻辑: 0-24小时差值算第1天，24-48小时差值算第2天...
-                const diff = nowTs - START_TIME;
-                daysElapsed = Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
-            } else {
-                // 未开始
-                handleNotStarted(nowTs);
-                return;
-            }
-
-            // 更新天数显示
-            domDay.innerText = daysElapsed;
-
-            // 3. 等级判断
-            let currentLevelObj = null;
-            let currentLevelIndex = 0;
-            let nextLevelObj = null;
-
-            // 倒序查找满足当前天数的最高等级
-            for (let i = LEVELS.length - 1; i >= 0; i--) {
-                if (daysElapsed >= LEVELS[i].day) {
-                    currentLevelObj = LEVELS[i];
-                    currentLevelIndex = i + 1;
-                    // 检查是否有下一级
-                    if (i < LEVELS.length - 1) {
-                        nextLevelObj = LEVELS[i + 1];
-                    }
-                    break;
-                }
-            }
-
-            // 处理: 如果天数大于0但小于第1级的要求 (通常根据逻辑第1级是day1，所以只要开始就是列兵，防备用)
-            if (!currentLevelObj && daysElapsed >= 1) {
-                 // 理论上不会进入这里，除非数组第一天不是1
-                 currentLevelObj = { name: "未知实体", day: 0 };
-                 nextLevelObj = LEVELS[0];
-            }
-
-            // 更新UI
-            if (currentLevelObj) {
-                domLevel.innerText = currentLevelObj.name;
-                domLevel.classList.remove('status-waiting');
-                
-                // 进度
-                domProgress.innerHTML = `当前阶位: <span class="highlight">${currentLevelIndex}</span> / ${LEVELS.length}`;
-
-                // 4. 倒计时逻辑
-                if (nextLevelObj) {
-                    // 下一级所需天数开始的时间点 = StartTime + (NextLevelDay - 1) * 24h
-                    // 比如下一级是Day 2 (上等兵)。起始点 + 24小时 = Day 2 开始时刻。
-                    const nextLevelTime = START_TIME + ((nextLevelObj.day - 1) * 24 * 60 * 60 * 1000);
-                    const timeDiff = nextLevelTime - nowTs;
-                    
-                    if (timeDiff > 0) {
-                        const d = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-                        const h = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                        const m = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-                        const s = Math.floor((timeDiff % (1000 * 60)) / 1000);
-                        
-                        domCountdown.innerHTML = `距离 [${nextLevelObj.name}]: <br><span class="highlight">${d}天 ${h}时 ${m}分 ${s}秒</span>`;
-                    } else {
-                        domCountdown.innerText = "正在升级同步中...";
-                    }
-                } else {
-                    // 已满级
-                    domCountdown.innerHTML = `<span class="highlight" style="color:#FFD700">已达宇宙巅峰，独断万古！</span>`;
-                }
+            // 如果星星飞出了屏幕，重新初始化到远处
+            if (this.z < 1) {
+                this.init();
+                this.pz = this.z;
             }
         }
 
-        function handleNotStarted(nowTs) {
-            domDay.innerText = "0";
-            domLevel.innerText = "系统休眠中";
-            domLevel.classList.add('status-waiting');
-            domProgress.innerText = "等待唤醒...";
-            
-            // 距离开启倒计时
-            const timeDiff = START_TIME - nowTs;
-            const d = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-            const h = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const m = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-            const s = Math.floor((timeDiff % (1000 * 60)) / 1000);
-            
-            domCountdown.innerHTML = `距离系统开启: <span class="highlight">${d}天 ${h}时 ${m}分 ${s}秒</span>`;
+        draw() {
+            // 将 3D 坐标投影到 2D 屏幕
+            // 公式: 2D坐标 = 3D中心 + (3D坐标 / 深度)
+            let sx = (this.x / this.z) * 500 + centerX;
+            let sy = (this.y / this.z) * 500 + centerY;
+
+            let px = (this.x / this.pz) * 500 + centerX;
+            let py = (this.y / this.pz) * 500 + centerY;
+
+            // 设置星星的亮度（越近越亮）
+            const opacity = 1 - this.z / 2000;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+            ctx.lineWidth = 2;
+
+            // 画出运动轨迹（短线段，形成拉伸感）
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(sx, sy);
+            ctx.stroke();
         }
+    }
 
-        // 启动主循环
-        setInterval(updateSystem, 1000);
-        updateSystem(); // 立即执行一次
+    // 创建星星数组
+    for (let i = 0; i < starCount; i++) {
+        stars.push(new Star());
+    }
 
-        // ==========================================
-        // 3. 视觉特效: Matrix Rain (黑客帝国数字雨)
-        // ==========================================
-        const canvas = document.getElementById('matrix-canvas');
-        const ctx = canvas.getContext('2d');
+    // 动画循环
+    function animate() {
+        // 每帧涂一层半透明黑，可以产生轻微的拖影效果
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, width, height);
 
-        let width = canvas.width = window.innerWidth;
-        let height = canvas.height = window.innerHeight;
-        
-        // 字符集: 片假名 + 数字
-        const chars = '0123456789ABCDEFｦｧｨｩｪｫｬｭｮｯｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ';
-        const charArray = chars.split('');
-
-        const fontSize = 16;
-        let columns = width / fontSize;
-
-        // 记录每列下落的Y坐标，初始为0
-        let drops = [];
-        for (let i = 0; i < columns; i++) {
-            drops[i] = 1;
-        }
-
-        function drawMatrix() {
-            // 绘制半透明黑色背景，形成拖尾效果
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-            ctx.fillRect(0, 0, width, height);
-
-            ctx.fillStyle = '#0F0'; // 绿色字体
-            ctx.font = fontSize + 'px monospace';
-
-            for (let i = 0; i < drops.length; i++) {
-                // 随机字符
-                const text = charArray[Math.floor(Math.random() * charArray.length)];
-                
-                // 绘制字符
-                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-
-                // 如果落到底部或随机重置，回到顶部
-                if (drops[i] * fontSize > height && Math.random() > 0.975) {
-                    drops[i] = 0;
-                }
-
-                // Y坐标增加
-                drops[i]++;
-            }
-        }
-
-        // 动画循环
-        setInterval(drawMatrix, 50);
-
-        // 窗口大小改变自适应
-        window.addEventListener('resize', () => {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-            columns = width / fontSize;
-            drops = [];
-            for (let i = 0; i < columns; i++) {
-                drops[i] = 1;
-            }
+        stars.forEach(star => {
+            star.update();
+            star.draw();
         });
 
-    </script>
+        requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    animate();
+</script>
+
 </body>
 </html>
